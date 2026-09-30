@@ -11,10 +11,10 @@
 ## Daily habits
 
 1. `git pull` on `main` before you start.
-2. Work on a branch: `git switch -c rithik/foundation-page`.
-3. Commit small: `git add -A && git commit -m "Add foundation profile page"`.
-4. `git push -u origin rithik/foundation-page`, open a pull request, ask one teammate to review, then merge. Vercel posts a preview link on the PR.
-5. Before each merge run `cd web && npm run build && npm run lint`.
+2. Commit small, straight on `main` (team decision: no pull requests): `git add -A && git commit -m "Add foundation profile page"`.
+3. `git pull --rebase`, then `git push`. Vercel deploys `main` to production on every push.
+4. Tell the others in chat before big changes to files someone else owns.
+5. Before each push run `cd web && npm run build && npm run lint`.
 
 ## Never commit
 
@@ -28,4 +28,4 @@ Only one person reruns the full pipeline. After a run, share `data/processed/fou
 
 ## Schema changes
 
-Edit `pipeline/schema.sql`, tell the team in your PR description, and everyone reruns the load (it truncates and reloads `foundations`; `outcomes` is untouched).
+Edit `pipeline/schema.sql`, tell the team in chat and in the commit message, and everyone reruns the load (it truncates and reloads `foundations`; `outcomes` is untouched).

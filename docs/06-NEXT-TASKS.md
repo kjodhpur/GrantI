@@ -1,6 +1,6 @@
 # 06 · Next tasks, in order
 
-Owners are suggestions from `docs/04-TEAM-WORKFLOW.md`; swap freely. One branch and one PR per task.
+Owners are suggestions from `docs/04-TEAM-WORKFLOW.md`; swap freely. Commit straight to `main`, one commit or more per task.
 
 | # | Task | Suggested owner | Done when |
 |---|---|---|---|

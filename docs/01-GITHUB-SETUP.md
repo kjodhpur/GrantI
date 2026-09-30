@@ -30,4 +30,4 @@ The email must match your GitHub account or Vercel will not attribute your commi
 
 ## Protect main (2 minutes)
 
-Settings → Branches → Add rule for `main` → require a pull request before merging. (On private repos this needs GitHub Pro/Team; on public repos it is free. If unavailable, just agree not to push to main.)
+Not used. The team pushes directly to `main` with no pull requests, so leave branch protection off. Pull with `git pull --rebase` before every push.

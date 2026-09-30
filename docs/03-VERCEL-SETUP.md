@@ -17,7 +17,7 @@ Pick the option you chose in docs/01. Public repo plus Hobby is the cheapest pat
   1. vercel.com/new → import `kjodhpur/GrantI` (install the Vercel GitHub app for this repo if asked).
   2. **Root Directory: `web`**. Framework: Next.js. Project name: `grant-prospect-intelligence`.
   3. Deploy. Without `DATABASE_URL` the page shows "DATABASE_URL is not set"; that is expected until step 1 below is done.
-  4. Production branch is `main`. Until the first PR merges, `main` has no `web/`, so merge the starter PR first (or set Production Branch to `claude/gracious-cerf-yisqzm` temporarily).
+  4. Production branch is `main`, which already contains `web/`, so the first deploy builds straight away.
 - **Sharing:** Hobby has no team seats, so Rithik and Sankalp do not need Vercel accounts to contribute. Add them as GitHub collaborators (repo Settings → Collaborators); every push then builds on Vercel.
 - **Preview links are behind Vercel Authentication by default**, so teammates without Vercel access get a login wall. Either use `npm run dev` locally, or in Vercel → Project → Settings → Deployment Protection set Vercel Authentication to "Only production" or off (the app shows only public IRS data; the database password is never exposed to the browser).
 

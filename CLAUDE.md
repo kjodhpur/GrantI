@@ -22,4 +22,4 @@ Read `docs/00-PROJECT-CONTEXT.md` first (product, customer, moat, measured facts
 - Do not name the design-partner client in code, docs, commits or PRs.
 - `foundations` is truncated and reloaded by the pipeline; `outcomes` must never be truncated or dropped.
 - LLM output must come from computed facts only; classify on recipient name + NTEE + purpose, never purpose alone.
-- Work on a branch, open a PR, one review, then merge. Don't push to `main`.
+- Commit and push straight to `main` (team decision: no pull requests). Run `cd web && npm run build && npm run lint` first, and `git pull --rebase` before pushing.
