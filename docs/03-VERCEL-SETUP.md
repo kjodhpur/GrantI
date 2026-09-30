@@ -13,11 +13,9 @@ Pick the option you chose in docs/01. Public repo plus Hobby is the cheapest pat
 ## Status for this team
 
 - Repo: https://github.com/kjodhpur/GrantI (public). Vercel team: `kjodhpurs-projects` (Hobby).
-- **Vercel project not created yet.** Kanha does this once, in the Vercel dashboard (the assistant's Vercel connector was denied permission to create projects):
-  1. vercel.com/new → import `kjodhpur/GrantI` (install the Vercel GitHub app for this repo if asked).
-  2. **Root Directory: `web`**. Framework: Next.js. Project name: `grant-prospect-intelligence`.
-  3. Deploy. Without `DATABASE_URL` the page shows "DATABASE_URL is not set"; that is expected until step 1 below is done.
-  4. Production branch is `main`, which already contains `web/`, so the first deploy builds straight away.
+- **Vercel project: `granti`** (team `kjodhpurs-projects`), linked to `kjodhpur/GrantI`, Next.js, production branch `main`. Every push to `main` deploys to production. Dashboard: https://vercel.com/kjodhpurs-projects/granti
+- Production URLs: https://granti-rouge.vercel.app and https://granti-kjodhpurs-projects.vercel.app
+- **`DATABASE_URL` is not set yet**, so the deployed page shows "DATABASE_URL is not set". Do step 1 below, then add it in Project Settings → Environment Variables (Production and Preview) and redeploy.
 - **Sharing:** Hobby has no team seats, so Rithik and Sankalp do not need Vercel accounts to contribute. Add them as GitHub collaborators (repo Settings → Collaborators); every push then builds on Vercel.
 - **Preview links are behind Vercel Authentication by default**, so teammates without Vercel access get a login wall. Either use `npm run dev` locally, or in Vercel → Project → Settings → Deployment Protection set Vercel Authentication to "Only production" or off (the app shows only public IRS data; the database password is never exposed to the browser).
 
