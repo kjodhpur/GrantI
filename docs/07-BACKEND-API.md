@@ -74,7 +74,7 @@ export DATABASE_URL='<pooled string>'
 python build_profiles.py --years 2023 2024 2025 --load
 ```
 
-`build_profiles.py` truncates and reloads `foundation_profiles`; `outcomes` is never touched. Loading a year list rolls all of them into one profile per EIN.
+`build_profiles.py` truncates and reloads `foundation_profiles`; `outcomes` is never touched. Loading a year list rolls all of them into one profile per EIN. The year in the IRS folder name is the *posting* year (2026 = filings posted so far this year, a partial year); amended returns are collapsed to the latest per foundation and tax period so grants are not double counted.
 
 ## Testing without IRS data
 

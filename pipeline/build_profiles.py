@@ -57,6 +57,14 @@ def sums(df, by):
 def build(dirs, intermediary_ids):
     filings, grants = read_dirs(dirs)
     filings = filings.drop_duplicates("object_id")
+    # Amended/superseding returns share EIN + tax period but have new object_ids: keep only the latest so
+    # grants are never double counted (matters most when several posting years are combined).
+    n0 = len(filings)
+    filings = (filings.sort_values(["ein", "tax_period_end", "return_ts", "object_id"])
+               .drop_duplicates(["ein", "tax_period_end"], keep="last"))
+    if len(filings) < n0:
+        print(f"dropped {n0 - len(filings):,} superseded/amended returns")
+    grants = grants[grants.object_id.isin(filings.object_id)]
     filings["tax_year"] = pd.to_datetime(filings["tax_period_end"], errors="coerce").dt.year
     g = grants[(grants.amount_type == "paid") & grants.amount_usd.notna() & (grants.amount_usd > 0)].copy()
     g = g.merge(filings[["object_id", "tax_year"]], on="object_id", how="left").reset_index(drop=True)
