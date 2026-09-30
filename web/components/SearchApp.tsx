@@ -109,7 +109,7 @@ export default function SearchApp({ causes, states }: { causes: Cause[]; states:
               <select id="state-add" className={s.input} value="" onChange={(e) => e.target.value && edit({ states: toggle(sel.states, e.target.value) })}>
                 <option value="">Add a state…</option>
                 {Object.entries(states).map(([abbr, name]) => (
-                  <option key={abbr} value={abbr}>{name.replace(/\b\w/g, (m) => m.toUpperCase())}</option>
+                  <option key={abbr} value={abbr}>{name.replace(/\b(?!of\b)\w/g, (m) => m.toUpperCase())}</option>
                 ))}
               </select>
               <div className={s.chips}>
