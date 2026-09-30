@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Grant Prospect Intelligence",
-  description: "Team 6, CIS 568",
+  title: "Grant Prospect Intelligence · Find foundations likely to fund your nonprofit",
+  description: "Describe your nonprofit and get a ranked list of private foundations most likely to fund it, based on public IRS Form 990-PF filings.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -1,0 +1,18 @@
+.page { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; display: grid; gap: 16px; }
+.page h1 { font-size: clamp(1.5rem, 4vw, 2rem); overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: .9rem; margin: 0; }
+.error { color: var(--bad); font-weight: 600; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; }
+.stats div { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+.stats strong { display: block; font-size: 1.25rem; }
+.stats span { color: var(--muted); font-size: .8rem; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+.card h2 { font-size: 1.05rem; margin-bottom: 8px; }
+.card ul { margin: 6px 0 0; padding-left: 20px; }
+.card p { margin: 6px 0; }
+.bars { list-style: none; padding: 0 !important; display: grid; gap: 8px; }
+.bars li { display: grid; grid-template-columns: minmax(150px, 220px) 1fr auto; gap: 12px; align-items: center; font-size: .9rem; }
+.bar { height: 8px; background: var(--bar-bg); border-radius: 4px; overflow: hidden; display: block; }
+.bar i { display: block; height: 100%; background: var(--bar); }
+.num { color: var(--muted); font-size: .82rem; white-space: nowrap; }
+@media (max-width: 640px) { .bars li { grid-template-columns: 1fr; gap: 2px; } }

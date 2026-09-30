@@ -4,7 +4,7 @@ Ranks private foundations most likely to fund a nonprofit, using IRS Form 990-PF
 
 ```
 pipeline/   Python: download IRS zips, parse 990-PF XML, roll up to foundations, load Postgres
-web/        Next.js app (deployed on Vercel). Reads Postgres.
+web/        Next.js app (deployed on Vercel): the public search page, foundation profiles, and the /api backend. Reads Postgres.
 docs/       Setup guides. Start with 01 and work down.
 data/       Local only, git-ignored (IRS files and Parquet, several GB for a full year)
 ```

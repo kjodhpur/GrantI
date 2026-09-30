@@ -70,3 +70,10 @@ CREATE INDEX IF NOT EXISTS fp_causes_idx    ON foundation_profiles USING gin (ca
 CREATE INDEX IF NOT EXISTS fp_states_idx    ON foundation_profiles USING gin (states);
 CREATE INDEX IF NOT EXISTS fp_countries_idx ON foundation_profiles USING gin (countries);
 CREATE INDEX IF NOT EXISTS fp_open_idx      ON foundation_profiles (open_to_apps, grants_usd DESC);
+
+-- Supabase exposes every public table through its REST API unless Row Level Security is on. The app connects
+-- directly as the table owner (which bypasses RLS), so enabling RLS with no policies locks the REST API out
+-- without affecting the app or the pipeline. Harmless on plain Postgres.
+ALTER TABLE foundations         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE foundation_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE outcomes            ENABLE ROW LEVEL SECURITY;

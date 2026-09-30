@@ -19,6 +19,12 @@ Pick the option you chose in docs/01. Public repo plus Hobby is the cheapest pat
 - **Sharing:** Hobby has no team seats, so Rithik and Sankalp do not need Vercel accounts to contribute. Add them as GitHub collaborators (repo Settings → Collaborators); every push then builds on Vercel.
 - **Preview links are behind Vercel Authentication by default**, so teammates without Vercel access get a login wall. Either use `npm run dev` locally, or in Vercel → Project → Settings → Deployment Protection set Vercel Authentication to "Only production" or off (the app shows only public IRS data; the database password is never exposed to the browser).
 
+## Database status (Supabase)
+
+- Project **GrantI** (ref `sigkzhqnithljuyxjevs`, us-east-1). Tables `foundations`, `foundation_profiles` and `outcomes` are created with Row Level Security on (schema in `pipeline/schema.sql`). They are **empty** until the pipeline loads real data.
+- **Still to do by hand:** copy the pooled connection string (Supabase dashboard → Connect → Transaction pooler, user `postgres.sigkzhqnithljuyxjevs`) into Vercel as `DATABASE_URL` for Production and Preview, then redeploy. The password is never shown in this repo or in chat.
+- Load real data with `DATABASE_URL='<that string>' python build_profiles.py --years 2025 2026 --load` (or `--load-only` from a shared `profiles.parquet`). **Never load synthetic data here.**
+
 ## 1. Hosted database (pick one, all have a free tier)
 
 Neon, Supabase, or Vercel's Marketplace Postgres. Create a project, copy the **pooled** connection string (it looks like `postgresql://user:pass@host/db?sslmode=require`). Then load the data from your laptop:

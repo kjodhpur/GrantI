@@ -1,0 +1,57 @@
+.card, .result { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+.card { display: grid; gap: 10px; }
+.label { font-size: 1.15rem; font-weight: 650; }
+.smallLabel { display: block; font-size: .9rem; font-weight: 600; margin-bottom: 6px; }
+.hint { color: var(--muted); font-size: .9rem; margin: 0; }
+.textarea, .input { width: 100%; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font: inherit; }
+.textarea { resize: vertical; min-height: 96px; }
+.examples { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: baseline; }
+.linkBtn { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; text-decoration: underline; font-size: .9rem; text-align: left; }
+.refine { border-top: 1px solid var(--border); padding-top: 12px; }
+.refine summary { cursor: pointer; font-weight: 600; }
+.fieldset { border: 0; padding: 0; margin: 12px 0; }
+.fieldset legend { font-size: .9rem; font-weight: 600; margin-bottom: 6px; padding: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.chip { border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: .88rem; cursor: pointer; background: var(--surface-2); color: var(--text); }
+.chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chipOn { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: .92rem; margin-top: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; }
+.actions .check { margin-top: 0; }
+.primary { background: var(--accent); color: var(--accent-text); border: 0; border-radius: 8px; padding: 11px 22px; font-weight: 650; cursor: pointer; }
+.primary:disabled { opacity: .6; cursor: wait; }
+.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 16px; cursor: pointer; margin: 8px 0; }
+.error { color: var(--bad); font-weight: 600; margin: 14px 0; }
+.notice { background: var(--surface-2); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 6px; margin: 10px 0; font-size: .92rem; }
+.resultsTitle { margin: 28px 0 4px; font-size: 1.4rem; }
+.resultsTitle:focus { outline: none; }
+.results { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 14px; }
+.resultHead { display: flex; gap: 14px; align-items: flex-start; }
+.rank { flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; font-weight: 700; font-size: .9rem; }
+.resultTitle { flex: 1; min-width: 0; }
+.resultTitle h3 { font-size: 1.1rem; overflow-wrap: anywhere; }
+.meta { color: var(--muted); font-size: .88rem; margin: 4px 0; }
+.score { flex: none; text-align: center; background: var(--surface-2); border-radius: 10px; padding: 6px 12px; }
+.score strong { display: block; font-size: 1.5rem; line-height: 1.1; }
+.score span { font-size: .75rem; color: var(--muted); }
+.badge { display: inline-block; font-size: .8rem; border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px; margin: 2px 6px 2px 0; color: var(--muted); }
+.badgeGood { color: var(--good); border-color: var(--good); }
+.badgeWarn { color: var(--warn); border-color: var(--warn); }
+.why { margin: 8px 0; padding-left: 20px; }
+.why li { margin: 3px 0; }
+.apply { background: var(--surface-2); border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: .92rem; }
+.apply ul { margin: 6px 0 0; padding-left: 18px; }
+.breakdown summary { cursor: pointer; font-size: .9rem; color: var(--muted); }
+.bars { list-style: none; padding: 0; display: grid; gap: 6px; margin: 10px 0; }
+.bars li { display: grid; grid-template-columns: 170px 1fr; gap: 10px; align-items: center; font-size: .88rem; }
+.bar { height: 8px; background: var(--bar-bg); border-radius: 4px; overflow: hidden; display: block; }
+.bar i { display: block; height: 100%; background: var(--bar); }
+.caveats { border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; font-size: .88rem; color: var(--muted); }
+.caveats ul { margin: 6px 0 0; padding-left: 18px; }
+@media (max-width: 640px) {
+  .row { grid-template-columns: 1fr; }
+  .bars li { grid-template-columns: 1fr; gap: 2px; }
+  .card, .result { padding: 16px; }
+  .primary { width: 100%; }
+}
