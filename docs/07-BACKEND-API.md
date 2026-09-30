@@ -69,9 +69,11 @@ See `.env.example`. On Vercel add `DATABASE_URL`, `APP_ACCESS_KEY` and `ANTHROPI
 
 ```bash
 cd pipeline && source .venv/bin/activate
-python build_year.py --year 2025                    # repeat for 2024, 2023 (untested for older years)
+python build_year.py --year 2026 --only <first zip name from the IRS 2026 index>   # test ONE zip first: 2026 is untested
+python build_year.py --year 2026                    # partial year: rerun monthly as the IRS posts more
+python build_year.py --year 2025                    # tested, complete
 export DATABASE_URL='<pooled string>'
-python build_profiles.py --years 2023 2024 2025 --load
+python build_profiles.py --years 2025 2026 --load   # add 2024 and older only after spot-checking
 ```
 
 `build_profiles.py` truncates and reloads `foundation_profiles`; `outcomes` is never touched. Loading a year list rolls all of them into one profile per EIN. The year in the IRS folder name is the *posting* year (2026 = filings posted so far this year, a partial year); amended returns are collapsed to the latest per foundation and tax period so grants are not double counted.

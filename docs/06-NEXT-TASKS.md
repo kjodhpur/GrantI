@@ -6,7 +6,7 @@ Owners are suggestions from `docs/04-TEAM-WORKFLOW.md`; swap freely. Commit stra
 
 | # | Task | Suggested owner | Done when |
 |---|---|---|---|
-| 1 | Run older years (2022 to 2024); check totals for a few known foundations against ProPublica Nonprofit Explorer (prototyping only, its terms bar commercial redistribution) | Kanha | Row counts per year recorded in this file; parser handles Part XV vs XIV |
+| 1 | Run 2026 (newest, partial year; test one zip first) together with 2025, then older years (2022 to 2024); check totals for a few known foundations against ProPublica Nonprofit Explorer (prototyping only, its terms bar commercial redistribution) | Kanha | Row counts per year recorded in this file; parser handles Part XV vs XIV |
 | 2 | Business Master File join: recipient EIN and NTEE onto grants | Kanha / Sankalp | Grants Parquet has `recipient_ein` and `ntee`; match rate reported |
 | 3 | Measure `pipeline/classify.py` against a hand-labelled sample, then add an LLM pass. LLM classification of cause and geography from recipient name + NTEE + purpose (never purpose alone). Batch API; start with a 10,000-grant sample and hand-check 100 | Sankalp | Labeled sample with measured accuracy; cost per 1M grants estimated |
 | 4 | Tune scoring weights in `web/lib/score.ts` on real filings; check the agent against the live API and its rationale text | Sankalp | Ranked list for a test profile; agent rationale cites only tool-returned numbers |
