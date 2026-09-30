@@ -31,5 +31,6 @@ cd ../web && npm install && npm run dev            # http://localhost:3000
 | docs/04-TEAM-WORKFLOW.md | Who works on what, daily habits, do-not-commit list |
 | docs/05-DATA-PIPELINE.md | What the pipeline does and how to extend it |
 | docs/06-NEXT-TASKS.md | Ordered backlog with suggested owners |
+| docs/07-BACKEND-API.md | The matching agent, API endpoints, scoring, testing without IRS data |
 
-**Confidentiality:** no Strength Global documents, lists, names of their contacts or donor data in this repo, ever.
+**Confidentiality:** no documents from the design-partner client, lists, names of their contacts or donor data in this repo, ever.

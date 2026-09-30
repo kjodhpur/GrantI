@@ -6,8 +6,12 @@ IRS index CSV + monthly zips ──► build_year.py ──► data/interim/<yea
                                                           │
                                    build_foundations.py ◄─┘ (DuckDB rollup)
                                           │
-                     data/processed/foundations_<year>.parquet ──► Postgres `foundations` ──► web/
+                     data/processed/foundations_<year>.parquet ──► Postgres `foundations` ──► web/ (starter page)
+
+data/interim/<year>/*.parquet ──► build_profiles.py (classify.py) ──► Postgres `foundation_profiles` ──► web/app/api (matching)
 ```
+
+The matching backend reads `foundation_profiles`, built by `build_profiles.py`. See `docs/07-BACKEND-API.md`.
 
 ## Design decisions
 
@@ -28,5 +32,5 @@ Grants paid (`GrantOrContributionPdDurYrGrp`) and approved for future payment (`
 1. Run older years (2022 to 2024) and check totals for a few known foundations against ProPublica.
 2. Business Master File join for recipient EIN and NTEE.
 3. LLM classification on recipient name, NTEE and purpose together (never purpose alone: 42% of purposes are generic). Batch API, 10,000-grant sample first.
-4. Ranking features and scores; the LLM writes rationales from computed facts only.
-5. Outcome logging UI writing to `outcomes`.
+4. ~~Ranking features and scores~~ built (`web/lib/score.ts`); tune on real data.
+5. Outcome logging **API** built (`/api/outcomes`); the UI is still to do.

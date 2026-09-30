@@ -20,7 +20,7 @@
 
 - `.env`, `.env.local`, any API key or database password (rotate immediately if you do).
 - `data/` (IRS files, Parquet). Share processed files by drive.
-- Anything from Strength Global: briefs, funder lists, contact names, donor data. Keep those in a private shared folder outside the repo. The .gitignore blocks `client/`, `*.docx` and `*.pptx` as a safety net.
+- Anything from the design-partner client: briefs, funder lists, contact names, donor data. Keep those in a private shared folder outside the repo. The .gitignore blocks `client/`, `*.docx` and `*.pptx` as a safety net.
 
 ## Data releases
 

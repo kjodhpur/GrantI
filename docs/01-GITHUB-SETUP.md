@@ -8,7 +8,7 @@ Decide first: **public or private?** It changes what Vercel lets you do for free
 | B | Private | Pro trial, then $20 per developer seat per month | $0 during trial | Safe for client-related work |
 | C | Private | Hobby | $0 | Hobby does not support collaborators on private repos: commits must come from the Hobby account owner only. Not recommended |
 
-Recommendation: **A for the class project**, keeping it generic ("Grant Prospect Intelligence"). Do not name Strength Global in a public repo unless they approve.
+Recommendation: **A for the class project**, keeping it generic ("Grant Prospect Intelligence"). Do not name the design-partner client in a public repo unless they approve.
 
 ## Status: done
 

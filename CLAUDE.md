@@ -8,12 +8,14 @@ Read `docs/00-PROJECT-CONTEXT.md` first (product, customer, moat, measured facts
 
 - `pipeline/` Python: download IRS zips, parse 990-PF XML (`parse_990pf.py`), roll up (`build_foundations.py`, DuckDB), load Postgres. Schema in `pipeline/schema.sql`.
 - `web/` Next.js app deployed on Vercel (Root Directory = `web`). Reads Postgres via `web/lib/db.ts`. **Next.js here has breaking changes: read `web/AGENTS.md` and `node_modules/next/dist/docs/` before writing code.**
-- `docs/` setup guides 01 to 06. `data/` is git-ignored.
+- Backend = `web/app/api/*` + `web/lib/{criteria,score,match,agent}.ts`, reading `foundation_profiles` (built by `pipeline/build_profiles.py`). Vocabulary shared by pipeline and web: `web/lib/taxonomy.json`. Read `docs/07-BACKEND-API.md`.
+- `docs/` setup guides 01 to 07. `data/` is git-ignored.
 
 ## Commands
 
 - Web: `cd web && npm install && npm run dev`; before merging `npm run build && npm run lint`.
 - Pipeline: `cd pipeline && pip install -r requirements.txt && python build_year.py --year 2025 --only 2025_TEOS_XML_01A`, then `python build_foundations.py --year 2025 --load` with `DATABASE_URL` set.
+- Tests: `cd web && npm test` (unit); API tests need a server + synthetic data, see docs/07. Synthetic data is fake: never load it into production.
 - Local DB: `docker compose up -d` (user/password/db all `gpi`).
 
 ## Hard rules
