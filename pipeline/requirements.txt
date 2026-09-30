@@ -1,0 +1,8 @@
+remotezip
+inflate64
+lxml
+pandas
+pyarrow
+requests
+duckdb
+psycopg[binary]

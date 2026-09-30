@@ -1,0 +1,8 @@
+:root { color-scheme: dark; }
+body { margin: 0; background: #0f1419; color: #e6e9ee; font-family: var(--font-geist-sans), system-ui, sans-serif; }
+input[type="text"], input:not([type]) { background: #1a212b; border: 1px solid #2c3644; color: inherit; padding: 8px 10px; border-radius: 6px; min-width: 260px; }
+button { background: #3b82f6; border: 0; color: white; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #222b37; vertical-align: top; }
+th { color: #9aa4b2; font-weight: 600; }
+.ein { color: #7d8896; font-size: 12px; }
