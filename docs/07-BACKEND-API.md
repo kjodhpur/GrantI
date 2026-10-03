@@ -39,19 +39,20 @@ Structured fields (all optional; they **override** anything parsed from `text`):
 | `requireOpen` | Default `true`: only foundations that list application contact info |
 | `limit` | 1 to 50, default 20 |
 
-Each result has `score` (0-100), `components` (cause, geo, size, capacity, access; `null` = criterion not supplied), `matched_causes`, `rationale` (plain-language lines, each derived from the profile's numbers), `contact` and `deadlines`, `giving` stats, `example_recipients`, and `prior_outcomes` (counts logged by users). The response also carries `warnings` and `caveats`; show the caveats in the UI.
+Each result has `score` (0-100), `components` (cause, geo, size, openness, capacity, access; `null` = criterion not supplied), `matched_causes`, `rationale` (plain-language lines, each derived from the profile's numbers), `contact` and `deadlines`, `giving` stats (including `new_grantee_rate` / `repeat_grantee_rate`, null when unknown), `example_recipients`, and `prior_outcomes` (counts logged by users). The response also carries `warnings` and `caveats`; show the caveats in the UI.
 
 ### Score (all in `web/lib/score.ts`, unit-tested)
 
 | Component | Weight | Idea |
 |---|---|---|
-| cause | 0.45 | Share of the foundation's grant dollars (70%) and grant count (30%) touching each requested cause; 40% of giving = full strength; discounted when it has under 10 grants |
+| cause | 0.40 | Share of the foundation's grant dollars (70%) and grant count (30%) touching each requested cause; 40% of giving = full strength; discounted when it has under 10 grants |
 | geo | 0.25 | Share of US dollars into requested states, or foreign share for international; home-state bonus; either geography counts |
 | size | 0.15 | Requested ask vs the foundation's middle-half grant range (log distance), penalised above its largest grant ever |
-| capacity | 0.10 | Log of total giving and number of grants |
+| openness | 0.10 | `new_grantee_rate`: share of the latest tax year's recipients not funded in the previous 2 tax years; 50% new = full strength; unknown (no prior-year filing) = 0.5 |
+| capacity | 0.05 | Log of total giving and number of grants |
 | access | 0.05 | 1 if it lists application contact info, 0.5 unknown, 0 if preselected-only |
 
-Components for criteria the nonprofit did not supply are dropped and the rest renormalised. A requested cause with zero evidence excludes the foundation.
+Components for criteria the nonprofit did not supply are dropped and the rest renormalised. Grants under `min_counted_grant_usd` ($250, `web/lib/scoring-config.json`, shared with the pipeline) count toward dollar totals but not toward grant counts or typical grant size. Recipients are identified across years by BMF EIN when matched, otherwise by normalized name + state. A requested cause with zero evidence excludes the foundation.
 
 ### The agent (`web/lib/agent.ts`)
 

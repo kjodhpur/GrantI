@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS foundation_profiles (
   deadlines         text,
   app_materials     text,
   app_restrictions  text,
-  grants_n          integer NOT NULL DEFAULT 0,
-  grants_usd        bigint  NOT NULL DEFAULT 0,
+  grants_n          integer NOT NULL DEFAULT 0,  -- grants of at least min_counted_grant_usd (web/lib/scoring-config.json)
+  grants_usd        bigint  NOT NULL DEFAULT 0,  -- all paid grants, including small ones
   median_grant_usd  numeric,
   p25_grant_usd     numeric,
   p75_grant_usd     numeric,
@@ -66,6 +66,9 @@ CREATE TABLE IF NOT EXISTS foundation_profiles (
   top_recipients    jsonb   NOT NULL DEFAULT '[]',  -- [{name, state, country, cause, usd}]
   trend             jsonb   NOT NULL DEFAULT '{}'   -- {year: {usd, n}}
 );
+-- Added after the first deploy: CREATE TABLE IF NOT EXISTS does not add columns to an existing table.
+ALTER TABLE foundation_profiles ADD COLUMN IF NOT EXISTS new_grantee_rate    numeric;  -- latest-year recipients not funded in prior 2 tax years
+ALTER TABLE foundation_profiles ADD COLUMN IF NOT EXISTS repeat_grantee_rate numeric;  -- 1 - new_grantee_rate; null = no prior-year filing
 CREATE INDEX IF NOT EXISTS fp_causes_idx    ON foundation_profiles USING gin (causes);
 CREATE INDEX IF NOT EXISTS fp_states_idx    ON foundation_profiles USING gin (states);
 CREATE INDEX IF NOT EXISTS fp_countries_idx ON foundation_profiles USING gin (countries);

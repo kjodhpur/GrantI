@@ -16,6 +16,7 @@ import os
 import numpy as np
 import pandas as pd
 
+import resolve
 from classify import Classifier, UNCLASSIFIED
 
 ROOT = os.environ.get("GPI_DATA_DIR") or os.path.join(os.path.dirname(__file__), "..", "data")
@@ -24,6 +25,10 @@ CAUSE_ARRAY_MIN_SHARE = 0.10   # a cause is a foundation's "focus" when it holds
 STATE_ARRAY_MIN_SHARE = 0.05
 TOP_RECIPIENTS = 5
 INDIVIDUAL = "Individual recipient (name not stored)"
+# Shared with web/lib/score.ts so pipeline and app agree on what counts as a grant.
+CFG = json.load(open(os.path.join(os.path.dirname(__file__), "..", "web", "lib", "scoring-config.json")))
+MIN_COUNTED = CFG["min_counted_grant_usd"]     # smaller grants count in dollar totals, not in counts or sizes
+LOOKBACK = CFG["grantee_lookback_years"]
 
 
 def read_dirs(dirs):
@@ -52,7 +57,39 @@ def nested(df, key, sub):
 
 
 def sums(df, by):
-    return df.groupby(by).agg(usd=("amount_usd", "sum"), n=("amount_usd", "size")).reset_index()
+    return df.groupby(by).agg(usd=("amount_usd", "sum"), n=("counted", "sum")).reset_index()
+
+
+def recipient_keys(g):
+    """Stable recipient identity: BMF EIN when matched, else normalized name + state. None for individuals."""
+    if os.path.exists(resolve.OUT):
+        ein = resolve.attach(g).recipient_ein
+    else:
+        print(f"note: {resolve.OUT} missing, identifying recipients by name + state only")
+        ein = pd.Series(None, index=g.index, dtype=object)
+    name = g.recipient_name_raw.map(resolve.norm_name)
+    by_name = "N:" + name + "|" + g.recipient_state.fillna(g.country)
+    key = ein.where(ein.notna(), by_name)
+    return key.where((g.is_individual != True) & (name != ""))  # noqa: E712
+
+
+def grantee_rates(g, filings):
+    """{ein: (new_rate, repeat_rate)}: share of the latest tax year's recipients that were / were not funded in
+    the previous LOOKBACK tax years. Null when the foundation filed for none of those years."""
+    years = filings.dropna(subset=["tax_year"]).groupby("ein").tax_year.agg(set)
+    latest = years.map(max)
+    r = g[g.counted & g.rkey.notna()][["funder_ein", "tax_year", "rkey"]].drop_duplicates()
+    r = r.assign(Y=r.funder_ein.map(latest))
+    now = r[r.tax_year == r.Y][["funder_ein", "rkey"]].drop_duplicates()
+    before = r[(r.tax_year < r.Y) & (r.tax_year >= r.Y - LOOKBACK)][["funder_ein", "rkey"]].drop_duplicates()
+    now = now.merge(before.assign(seen=True), on=["funder_ein", "rkey"], how="left")
+    rate = now.groupby("funder_ein").seen.apply(lambda x: x.isna().mean())
+    out = {}
+    for ein, ys in years.items():
+        y = latest[ein]
+        if ein in rate.index and any(y - k in ys for k in range(1, LOOKBACK + 1)):
+            out[ein] = (round(float(rate[ein]), 4), round(1 - float(rate[ein]), 4))
+    return out
 
 
 def build(dirs, intermediary_ids):
@@ -77,11 +114,15 @@ def build(dirs, intermediary_ids):
     g["cause"] = g.cause_list.str[0]                                    # primary label, for display
     g["country"] = g["recipient_country"].fillna("US")
     g["is_foreign"] = g["country"] != "US"
+    g["counted"] = g.amount_usd >= MIN_COUNTED
+    g["rkey"] = recipient_keys(g)
     ge = g.explode("cause_list").rename(columns={"cause_list": "c"})    # one row per (grant, label); index = grant
     real = ge[~ge.c.isin([UNCLASSIFIED, *intermediary_ids])]
 
-    basic = g.groupby("funder_ein").amount_usd.agg(grants_n="size", grants_usd="sum", max_grant_usd="max")
-    qs = g.groupby("funder_ein").amount_usd.quantile([.25, .5, .75]).unstack()
+    basic = g.groupby("funder_ein").agg(grants_n=("counted", "sum"), grants_usd=("amount_usd", "sum"),
+                                        max_grant_usd=("amount_usd", "max"))
+    qs = g[g.counted].groupby("funder_ein").amount_usd.quantile([.25, .5, .75]).unstack()
+    rates = grantee_rates(g, filings)
     foreign_usd = g[g.is_foreign].groupby("funder_ein").amount_usd.sum()
     cls_usd = g[g.index.isin(real.index)].groupby("funder_ein").amount_usd.sum()
     mix = nested(sums(real, ["funder_ein", "c"]), "funder_ein", "c")
@@ -94,6 +135,9 @@ def build(dirs, intermediary_ids):
             name=INDIVIDUAL if r.is_individual == True else (None if pd.isna(r.recipient_name_raw) else r.recipient_name_raw),
             state=None if pd.isna(r.recipient_state) else r.recipient_state,
             country=r.country, cause=r.cause, usd=int(r.amount_usd)))
+
+    def qv(ein, p):                     # None when a foundation made no grant of MIN_COUNTED or more
+        return float(qs.loc[ein, p]) if ein in qs.index else None
 
     latest = filings.sort_values(["ein", "tax_period_end", "object_id"]).groupby("ein").tail(1).set_index("ein")
     rows = []
@@ -116,8 +160,9 @@ def build(dirs, intermediary_ids):
             contact_phone=f.get("app_contact_phone"), deadlines=f.get("app_deadlines"),
             app_materials=f.get("app_form_materials"), app_restrictions=f.get("app_restrictions"),
             grants_n=int(b.grants_n), grants_usd=usd,
-            median_grant_usd=float(qs.loc[ein, .5]), p25_grant_usd=float(qs.loc[ein, .25]), p75_grant_usd=float(qs.loc[ein, .75]),
+            median_grant_usd=qv(ein, .5), p25_grant_usd=qv(ein, .25), p75_grant_usd=qv(ein, .75),
             max_grant_usd=int(b.max_grant_usd),
+            new_grantee_rate=rates.get(ein, (None, None))[0], repeat_grantee_rate=rates.get(ein, (None, None))[1],
             foreign_share=float(foreign_usd.get(ein, 0)) / usd if usd else 0.0,
             classified_share=cu / usd if usd else 0.0,
             causes=[c for c, v in m.items() if cu and v["usd"] / cu >= CAUSE_ARRAY_MIN_SHARE],

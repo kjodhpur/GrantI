@@ -1,5 +1,6 @@
 import type { Criteria } from "./criteria";
 import { causeLabel } from "./taxonomy";
+import config from "./scoring-config.json";
 
 /** One row of foundation_profiles with numeric/JSON columns normalised. */
 export type Profile = {
@@ -21,6 +22,9 @@ export type Profile = {
   p25_grant_usd: number | null;
   p75_grant_usd: number | null;
   max_grant_usd: number | null;
+  /** Share of the latest tax year's recipients not funded in the prior two tax years; null = no prior filing. */
+  new_grantee_rate: number | null;
+  repeat_grantee_rate: number | null;
   foreign_share: number;
   classified_share: number;
   cause_mix: Record<string, { usd: number; n: number }>;
@@ -30,9 +34,16 @@ export type Profile = {
   trend: Record<string, { usd: number; n: number }>;
 };
 
-export type Components = { cause: number | null; geo: number | null; size: number | null; capacity: number; access: number };
+export type Components = {
+  cause: number | null;
+  geo: number | null;
+  size: number | null;
+  openness: number;
+  capacity: number;
+  access: number;
+};
 
-export const WEIGHTS = { cause: 0.45, geo: 0.25, size: 0.15, capacity: 0.1, access: 0.05 } as const;
+export const WEIGHTS = { cause: 0.4, geo: 0.25, size: 0.15, openness: 0.1, capacity: 0.05, access: 0.05 } as const;
 
 const sat = (x: number, at: number) => Math.min(1, Math.max(0, x / at));
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
@@ -101,6 +112,12 @@ export function capacityFit(p: Profile): number {
   return 0.7 * usd + 0.3 * n;
 }
 
+/** Openness to newcomers: half of last year's grantees being new is full strength. No prior-year data = neutral. */
+export function opennessFit(p: Profile): number {
+  if (p.new_grantee_rate === null || p.new_grantee_rate === undefined) return 0.5;
+  return sat(p.new_grantee_rate, 0.5);
+}
+
 export function accessFit(p: Profile): number {
   if (p.open_to_apps) return 1;
   return p.only_preselected ? 0 : 0.5;
@@ -111,6 +128,7 @@ export function scoreProfile(p: Profile, c: Criteria) {
     cause: causeFit(p, c),
     geo: geoFit(p, c),
     size: sizeFit(p, c),
+    openness: opennessFit(p),
     capacity: capacityFit(p),
     access: accessFit(p),
   };
@@ -135,7 +153,7 @@ export function rationale(p: Profile, c: Criteria): string[] {
   for (const { id } of c.causes) {
     const m = p.cause_mix[id];
     if (m && m.usd > 0 && p.grants_usd) {
-      out.push(`${pct(m.usd / p.grants_usd)} of its ${usd(p.grants_usd)} in grants (${m.n} of ${p.grants_n} grants) went to ${causeLabel(id)} recipients.`);
+      out.push(`${pct(m.usd / p.grants_usd)} of its ${usd(p.grants_usd)} in grants (${m.n} of ${p.grants_n} grants of ${usd(config.min_counted_grant_usd)}+) went to ${causeLabel(id)} recipients.`);
     }
   }
   const wantsIntl = c.international || c.countries.length > 0;
@@ -158,6 +176,10 @@ export function rationale(p: Profile, c: Criteria): string[] {
         : ` Your ${usd(c.askUsd)} is inside its typical range.`;
     }
     out.push(`Median grant ${usd(p.median_grant_usd)}${band}.${ask}`);
+  }
+  if (p.new_grantee_rate !== null && p.new_grantee_rate !== undefined && p.years.length) {
+    const latest = p.years[p.years.length - 1];
+    out.push(`${pct(p.new_grantee_rate)} of its ${latest} grantees were new (not funded in the previous ${config.grantee_lookback_years} tax years); ${pct(1 - p.new_grantee_rate)} were repeat grantees.`);
   }
   if (p.open_to_apps) {
     const bits = [p.contact_name, p.contact_email, p.contact_phone].filter(Boolean).join(", ");

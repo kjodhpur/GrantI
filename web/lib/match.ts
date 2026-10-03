@@ -7,7 +7,7 @@ const CANDIDATE_LIMIT = 3000;
 
 const COLUMNS = `ein, name, state, years, only_preselected, open_to_apps, contact_name, contact_email, contact_phone,
   deadlines, app_materials, app_restrictions, grants_n, grants_usd, median_grant_usd, p25_grant_usd, p75_grant_usd,
-  max_grant_usd, foreign_share, classified_share, cause_mix, geo_states, geo_countries, top_recipients, trend`;
+  max_grant_usd, new_grantee_rate, repeat_grantee_rate, foreign_share, classified_share, cause_mix, geo_states, geo_countries, top_recipients, trend`;
 
 type Row = Record<string, unknown>;
 const num = (v: unknown) => (v === null || v === undefined ? null : Number(v));
@@ -21,6 +21,8 @@ export function toProfile(r: Row): Profile {
     p25_grant_usd: num(r.p25_grant_usd),
     p75_grant_usd: num(r.p75_grant_usd),
     max_grant_usd: num(r.max_grant_usd),
+    new_grantee_rate: num(r.new_grantee_rate),
+    repeat_grantee_rate: num(r.repeat_grantee_rate),
     foreign_share: Number(r.foreign_share ?? 0),
     classified_share: Number(r.classified_share ?? 0),
     years: (r.years as number[]) ?? [],
@@ -39,7 +41,15 @@ export type Match = {
   rationale: string[];
   open_to_apps: boolean;
   contact: { name: string | null; email: string | null; phone: string | null; deadlines: string | null; materials: string | null; restrictions: string | null };
-  giving: { grants_n: number; grants_usd: number; median_grant_usd: number | null; foreign_share: number; years: number[] };
+  giving: {
+    grants_n: number;
+    grants_usd: number;
+    median_grant_usd: number | null;
+    foreign_share: number;
+    new_grantee_rate: number | null;
+    repeat_grantee_rate: number | null;
+    years: number[];
+  };
   example_recipients: Profile["top_recipients"];
   prior_outcomes: OutcomeCounts;
 };
@@ -117,7 +127,8 @@ export async function matchFoundations(c: Criteria): Promise<MatchResponse> {
     rationale: rationale(prof, c),
     open_to_apps: !!prof.open_to_apps,
     contact: { name: prof.contact_name, email: prof.contact_email, phone: prof.contact_phone, deadlines: prof.deadlines, materials: prof.app_materials, restrictions: prof.app_restrictions },
-    giving: { grants_n: prof.grants_n, grants_usd: prof.grants_usd, median_grant_usd: prof.median_grant_usd, foreign_share: prof.foreign_share, years: prof.years },
+    giving: { grants_n: prof.grants_n, grants_usd: prof.grants_usd, median_grant_usd: prof.median_grant_usd, foreign_share: prof.foreign_share,
+      new_grantee_rate: prof.new_grantee_rate, repeat_grantee_rate: prof.repeat_grantee_rate, years: prof.years },
     example_recipients: prof.top_recipients,
     prior_outcomes: outcomes.get(prof.ein) ?? { approached: 0, funded: 0, declined: 0 },
   }));
