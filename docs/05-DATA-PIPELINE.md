@@ -19,9 +19,15 @@ The matching backend reads `foundation_profiles`, built by `build_profiles.py`. 
 - The IRS zips use **Deflate64**, which Python's `zipfile` cannot read, so `parse_990pf.py` uses `inflate64`.
 - **Open to applications** is a filter, not proof. It means the filer did not tick "contributions only to preselected charities" and listed application contact info. Check top matches against foundation websites.
 
+## Years and file layout (checked 2026-10)
+
+- Zip names differ by posting year: 2019-2020 `download990xml_<year>_N.zip`, 2021-2022 one `<year>_TEOS_XML_01A.zip`, 2023+ monthly `<year>_TEOS_XML_MMx.zip`. Index files before 2024 have no `XML_BATCH_ID` column, so `build_year.py` reads zip names from the IRS downloads page.
+- Older schemas parse with the same code: a 2019 sample (schema 2017v2.2 to 2018v3.1) matched the reported grant total on 309 of 309 grant-paying filings. Only 2025 and 2026 are loaded so far.
+- Set `GPI_DATA_DIR` to keep data outside the repo (the repo may sit in a synced OneDrive folder; a full year downloads ~3 to 4.5 GB, deleted zip by zip).
+
 ## What the parser extracts
 
-Grants paid (`GrantOrContributionPdDurYrGrp`) and approved for future payment (`GrantOrContriApprvForFutGrp`); the preselected-only flag; application contact, form/materials text, deadlines and restrictions; officers.
+Grants paid (`GrantOrContributionPdDurYrGrp`, about 17% of them to individuals: those keep only amount, purpose, state/country and `is_individual`, never the person's name, city, ZIP or relationship) and approved for future payment (`GrantOrContriApprvForFutGrp`); the preselected-only flag; application contact, form/materials text, deadlines and restrictions; officers.
 
 ## What we measured on the full 2025 postings
 

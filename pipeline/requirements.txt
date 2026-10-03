@@ -7,3 +7,4 @@ requests
 duckdb
 psycopg[binary]
 pytest
+rapidfuzz
