@@ -21,12 +21,10 @@ python resolve.py --years 2025 2026          # -> resolved/recipients.parquet + 
 
 | | distinct recipients | grants | dollars |
 |---|---|---|---|
-| EIN matched | 49.2% | 60.8% | 54.7% |
-| NTEE code known | 40.1% | 51.0% | 49.7% |
+| EIN matched | 49.0% | 60.5% | 54.6% |
+| NTEE code known | 39.9% | 50.8% | 49.6% |
 
 NTEE coverage is below the EIN match rate because 29% of BMF records have no NTEE code. By method: exact 416,501; fuzzy accepted or rejected 185,781; city-decided 15,189; same-name ties 7,323; no candidate 343,300.
-
-Figures are from the run before the short-word rule in step 3; rerunning changes them slightly.
 
 ## Why recipients stay unmatched
 
@@ -38,4 +36,4 @@ Spot-checks of the largest unmatched recipients by dollars:
 
 ## Precision near the threshold
 
-`resolved/report.md` (git-ignored, regenerated each run) lists a random 50 fuzzy matches scored 0.85 to 0.93 for hand checking. In the first sample, 6 of 8 accepted matches near the threshold were correct; the errors (a 4-letter acronym off by one letter, and HARBOR vs HARBOUR FOUNDATION) led to the short-word rule. Rejected examples just below the threshold were mostly correctly rejected (e.g. "UNITARIAN CHURCH IN CHARLESTON" vs "UNITY CHURCH OF CHARLESTON"), with some true matches lost (e.g. "VERA INSTITUTE FOR SOCIAL JUSTICE" vs "VERA INSTITUTE OF JUSTICE"). A full precision estimate needs a hand-labelled sample of accepted matches across the 0.90 to 0.99 range.
+`resolved/report.md` (git-ignored, regenerated each run) lists a random 50 fuzzy matches scored 0.85 to 0.93 for hand checking. In the first sample, 6 of 8 accepted matches near the threshold were correct; the errors (a 4-letter acronym off by one letter, and HARBOR vs HARBOUR FOUNDATION) led to the short-word rule. After it, 6 of 7 accepted near-threshold matches in a new sample were correct; the remaining error type is a short recipient name contained in a longer, different organization's name ("WISCONSIN UNIVERSITY" vs "WISCONSIN UNIVERSITY UNION"). Rejected examples just below the threshold were mostly correctly rejected (e.g. "UNITARIAN CHURCH IN CHARLESTON" vs "UNITY CHURCH OF CHARLESTON"), with some true matches lost (e.g. "VERA INSTITUTE FOR SOCIAL JUSTICE" vs "VERA INSTITUTE OF JUSTICE"). A full precision estimate needs a hand-labelled sample of accepted matches across the 0.90 to 0.99 range.
