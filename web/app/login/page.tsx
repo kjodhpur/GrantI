@@ -1,0 +1,9 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft, ArrowRight, LockKeyhole } from "lucide-react";
+
+export default function LoginPage() {
+  return <main className="login-page"><div className="login-visual"><Link className="brand" href="/"><Image src="/gpi-mark.png" alt="" width={35} height={35} /><span>GPI</span></Link><div className="login-visual-copy"><span className="eyebrow">GRANT PROSPECT INTELLIGENCE</span><h1>Find the signal<br />in the <em>landscape.</em></h1><p>AI-assisted research. Human-led decisions.</p></div><span className="login-caption">A clearer view of what comes next.</span></div><section className="login-form-side"><Link href="/" className="login-back"><ArrowLeft size={15} />Back to GPI</Link><div className="login-form"><span className="login-lock"><LockKeyhole size={18} /></span><p className="eyebrow">WELCOME BACK</p><h2>Sign in to GPI</h2><p className="login-copy">Access your organization&apos;s prospect workspace.</p><form onSubmit={(event) => event.preventDefault()}><label htmlFor="email">Work email</label><input id="email" type="email" placeholder="you@organization.org" autoComplete="email" /><label htmlFor="password">Password</label><input id="password" type="password" placeholder="Enter your password" autoComplete="current-password" /><button className="button" type="submit">Continue <ArrowRight size={15} /></button></form><p className="login-demo-note">Authentication is not connected in this frontend demo.</p></div><div className="login-form-footer"><span>© GPI — Grant Prospect Intelligence</span><span>Secure workspace <LockKeyhole size={12} /></span></div></section></main>;
+}

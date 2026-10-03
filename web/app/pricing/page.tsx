@@ -1,0 +1,9 @@
+import Link from "next/link";
+import { ArrowRight, Check, Compass, Layers3 } from "lucide-react";
+import { SiteFooter, SiteHeader } from "@/app/shared";
+
+const inclusions = ["Organization profile", "Ranked prospect discovery", "Match explanations", "Saved prospects", "Pipeline tracking", "Outcome capture", "Product updates during pilot"];
+
+export default function PricingPage() {
+  return <><SiteHeader /><main className="subpage pricing-page"><div className="wrap"><div className="subpage-heading"><p className="eyebrow">A focused start</p><h1>One pilot.<br /><em>Clear priorities.</em></h1><p>Start with the tools a fundraising team needs to build and review a more focused prospect list.</p></div><div className="pricing-layout"><section className="pricing-main"><div className="pricing-label"><Compass size={17} /> GPI PILOT</div><div className="price-line"><strong>$799</strong><span>/ year</span></div><p className="price-sub">Pilot pricing · configurable for the program</p><Link className="button" href="mailto:hello@gpi.example?subject=GPI%20Pilot%20Access">Request pilot access <ArrowRight size={16} /></Link><p className="pricing-note">No enterprise pricing assumptions. Pilot scope is agreed with each participating organization.</p></section><section className="pricing-includes"><span className="eyebrow">INCLUDED IN THE PILOT</span>{inclusions.map((item) => <div key={item}><Check size={15} />{item}</div>)}</section></div><div className="scale-note"><Layers3 size={18} /><div><h2>Built to scale with your fundraising operation.</h2><p>Future plans can support larger teams, data integrations, collaboration, and organization-specific models.</p></div><Link href="/platform">View platform demo <ArrowRight size={14} /></Link></div></div></main><SiteFooter /></>;
+}

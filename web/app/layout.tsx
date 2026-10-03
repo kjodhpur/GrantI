@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
+const geistSans = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
@@ -13,8 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Grant Prospect Intelligence · Find foundations likely to fund your nonprofit",
-  description: "Describe your nonprofit and get a ranked list of private foundations most likely to fund it, based on public IRS Form 990-PF filings.",
+  title: "GPI — Grant Prospect Intelligence",
+  description: "AI-assisted grant prospect intelligence that helps nonprofit fundraising teams prioritize funders, understand fit, and make evidence-backed decisions.",
+  openGraph: {
+    title: "GPI — Grant Prospect Intelligence",
+    description: "Open the door to better-fit funding.",
+    siteName: "GPI",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

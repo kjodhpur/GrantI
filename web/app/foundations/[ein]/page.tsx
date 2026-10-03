@@ -22,7 +22,7 @@ export default async function FoundationPage({ params }: { params: Promise<{ ein
   } catch {
     return (
       <main className={s.page}>
-        <Link href="/">← Back to search</Link>
+        <Link href="/search">← Back to search</Link>
         <p role="alert" className={s.error}>The foundation index is not available right now. Please try again later.</p>
       </main>
     );
@@ -35,7 +35,7 @@ export default async function FoundationPage({ params }: { params: Promise<{ ein
 
   return (
     <main className={s.page}>
-      <Link href="/">← Back to search</Link>
+      <Link href="/search">← Back to search</Link>
       <h1>{f.name}</h1>
       <p className={s.meta}>EIN {f.ein.replace(/^(\d{2})(\d{7})$/, "$1-$2")}{f.state ? ` · ${f.state}` : ""} · IRS 990-PF filings for tax years {yearRange(f.years)}</p>
 

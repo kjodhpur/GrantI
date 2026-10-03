@@ -32,6 +32,19 @@ export type Foundation = {
   foreign_grants_n: number;
 };
 
+export async function listFoundationNames(openOnly: boolean): Promise<string[]> {
+  const pool = getPool();
+  if (!pool) throw new Error("NO_DB");
+  const { rows } = await pool.query<{ name: string }>(
+    `SELECT DISTINCT name FROM foundations
+      WHERE ($1::boolean = false OR open_to_apps)
+        AND name IS NOT NULL AND trim(name) <> ''
+      ORDER BY name`,
+    [openOnly]
+  );
+  return rows.map(({ name }) => name);
+}
+
 export async function listFoundations(openOnly: boolean, q: string): Promise<Foundation[]> {
   const pool = getPool();
   if (!pool) throw new Error("NO_DB");
