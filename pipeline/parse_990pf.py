@@ -71,18 +71,21 @@ def parse_return(xml_bytes, object_id=None):
     for tag, kind in (("GrantOrContributionPdDurYrGrp", "paid"), ("GrantOrContriApprvForFutGrp", "approved_future")):
         for g in body.iter("{*}" + tag):
             rec_name = " ".join(filter(None, [txt(g, "RecipientBusinessName/BusinessNameLine1Txt"),
-                                               txt(g, "RecipientBusinessName/BusinessNameLine2Txt")])) \
-                       or txt(g, "RecipientPersonNm")
+                                               txt(g, "RecipientBusinessName/BusinessNameLine2Txt")])) or None
+            # Grants to individuals (scholarships, relief): never store the person's name, city, ZIP or
+            # relationship. Keep state/country (geography), amount and purpose only.
+            individual = rec_name is None and txt(g, "RecipientPersonNm") is not None
             us, fx = g.find("{*}RecipientUSAddress"), g.find("{*}RecipientForeignAddress")
             amt = txt(g, "Amt")
             grants.append(dict(
                 object_id=object_id, funder_ein=ein, amount_type=kind,
                 recipient_name_raw=rec_name,
-                recipient_city=txt(us, "CityNm") if us is not None else txt(fx, "CityNm"),
+                is_individual=individual,
+                recipient_city=None if individual else (txt(us, "CityNm") if us is not None else txt(fx, "CityNm")),
                 recipient_state=txt(us, "StateAbbreviationCd") if us is not None else None,
-                recipient_zip=txt(us, "ZIPCd") if us is not None else None,
+                recipient_zip=txt(us, "ZIPCd") if us is not None and not individual else None,
                 recipient_country="US" if us is not None else (txt(fx, "CountryCd") if fx is not None else None),
-                recipient_relationship=txt(g, "RecipientRelationshipTxt"),
+                recipient_relationship=None if individual else txt(g, "RecipientRelationshipTxt"),
                 recipient_foundation_status=txt(g, "RecipientFoundationStatusTxt"),
                 grant_purpose=txt(g, "GrantOrContributionPurposeTxt"),
                 amount_usd=int(amt) if amt and amt.lstrip("-").isdigit() else None,

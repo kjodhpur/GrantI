@@ -140,7 +140,7 @@ def make():
                 purpose = str(rng.choice(PURPOSE[c])) if c in PURPOSE and rng.random() < 0.45 else rng.choice(GENERIC)
                 grants.append(dict(
                     object_id=oid, funder_ein=ein, amount_type="paid",
-                    recipient_name_raw=recipient(c, st, ctry), recipient_city="Testville", recipient_state=st,
+                    recipient_name_raw=recipient(c, st, ctry), is_individual=False, recipient_city="Testville", recipient_state=st,
                     recipient_zip=None, recipient_country=ctry, recipient_relationship=None,
                     recipient_foundation_status="PC", grant_purpose=purpose if purpose else None,
                     amount_usd=int(max(500, rng.lognormal(np.log(p["scale"]), 0.8)) // 100 * 100)))

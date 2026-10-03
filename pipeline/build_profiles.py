@@ -18,11 +18,12 @@ import pandas as pd
 
 from classify import Classifier, UNCLASSIFIED
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "data")
+ROOT = os.environ.get("GPI_DATA_DIR") or os.path.join(os.path.dirname(__file__), "..", "data")
 OUT = os.path.join(ROOT, "processed", "profiles.parquet")
 CAUSE_ARRAY_MIN_SHARE = 0.10   # a cause is a foundation's "focus" when it holds >=10% of classified dollars
 STATE_ARRAY_MIN_SHARE = 0.05
 TOP_RECIPIENTS = 5
+INDIVIDUAL = "Individual recipient (name not stored)"
 
 
 def read_dirs(dirs):
@@ -56,6 +57,9 @@ def sums(df, by):
 
 def build(dirs, intermediary_ids):
     filings, grants = read_dirs(dirs)
+    if "is_individual" not in grants:
+        raise SystemExit("grant files predate the individual-recipient privacy fix (no is_individual column). "
+                         "Delete data/interim/<year> and rerun build_year.py.")
     filings = filings.drop_duplicates("object_id")
     # Amended/superseding returns share EIN + tax period but have new object_ids: keep only the latest so
     # grants are never double counted (matters most when several posting years are combined).
@@ -87,7 +91,7 @@ def build(dirs, intermediary_ids):
     top = {}
     for r in g.sort_values("amount_usd", ascending=False).groupby("funder_ein").head(TOP_RECIPIENTS).itertuples():
         top.setdefault(r.funder_ein, []).append(dict(
-            name=None if pd.isna(r.recipient_name_raw) else r.recipient_name_raw,
+            name=INDIVIDUAL if r.is_individual == True else (None if pd.isna(r.recipient_name_raw) else r.recipient_name_raw),
             state=None if pd.isna(r.recipient_state) else r.recipient_state,
             country=r.country, cause=r.cause, usd=int(r.amount_usd)))
 
