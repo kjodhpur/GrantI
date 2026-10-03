@@ -4,16 +4,27 @@
   python build_year.py --year 2025 --only 2025_TEOS_XML_01A   # one zip, good for a first test
 
 Output: data/interim/<year>/<zip>_{filings,grants,officers}.parquet  (safe to re-run; done zips are skipped)
+Set GPI_DATA_DIR to keep data outside the repo (e.g. off a OneDrive/Dropbox-synced folder).
 """
 import argparse, os, re, sys, time, zipfile
 import requests
 import parse_990pf as P
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "data")
+ROOT = os.environ.get("GPI_DATA_DIR") or os.path.join(os.path.dirname(__file__), "..", "data")
+PAGE = "https://www.irs.gov/charities-non-profits/form-990-series-downloads"
 
 
 def zip_names(year, index_csv):
+    """Zip names for a year, scraped from the IRS downloads page. Names differ by year
+    (2019-20: download990xml_<year>_N, 2021-22: one zip, 2023+: monthly <year>_TEOS_XML_MMx),
+    and index files before 2024 have no XML_BATCH_ID column, so the page is the source of truth."""
+    html = requests.get(PAGE, headers=P.UA, timeout=60).text
+    names = sorted(set(re.findall(rf"/990/xml/{year}/([A-Za-z0-9_]+)\.zip", html)))
+    if names:
+        return names
     df = P.load_index(year, index_csv)
+    if "XML_BATCH_ID" not in df:
+        raise SystemExit(f"no zip links for {year} on {PAGE} and no XML_BATCH_ID in its index")
     return sorted(df.XML_BATCH_ID.unique())
 
 

@@ -1,26 +1,38 @@
-"""Roll parsed filings up to one row per filing (foundation-year) and optionally load Postgres.
+"""Roll parsed filings up to one row per foundation (its latest filing) and optionally load Postgres.
 
-  python build_foundations.py --year 2025                 # writes data/processed/foundations_2025.parquet
-  python build_foundations.py --year 2025 --load          # also loads into Postgres ($DATABASE_URL)
-  python build_foundations.py --year 2025 --load-only     # load an existing processed parquet (no interim data needed)
+  python build_foundations.py --years 2025                     # writes data/processed/foundations_2025.parquet
+  python build_foundations.py --years 2019 2020 ... 2026 --load   # latest filing per EIN across years, then load
+  python build_foundations.py --years 2025 --load-only         # load an existing processed parquet (no interim data)
+
+Several posting years hold several filings per EIN (and amended returns); only the newest
+tax period (newest return within it) is kept, so the table has one row per foundation.
 """
 import argparse, glob, os
 import duckdb
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "data")
+ROOT = os.environ.get("GPI_DATA_DIR") or os.path.join(os.path.dirname(__file__), "..", "data")
 
 
-def build(year):
-    d = os.path.join(ROOT, "interim", year)
-    if not glob.glob(os.path.join(d, "*_filings.parquet")):
-        raise SystemExit(f"no parsed data in {d}. Run build_year.py first.")
+def out_path(years):
+    return os.path.join(ROOT, "processed", f"foundations_{'_'.join(sorted(years))}.parquet")
+
+
+def build(years):
+    dirs = [os.path.join(ROOT, "interim", y).replace("\\", "/") for y in years]
+    for d in dirs:
+        if not glob.glob(os.path.join(d, "*_filings.parquet")):
+            raise SystemExit(f"no parsed data in {d}. Run build_year.py first.")
     os.makedirs(os.path.join(ROOT, "processed"), exist_ok=True)
-    out = os.path.join(ROOT, "processed", f"foundations_{year}.parquet")
+    out = out_path(years)
+    fl = ", ".join(f"'{d}/*_filings.parquet'" for d in dirs)
+    gl = ", ".join(f"'{d}/*_grants.parquet'" for d in dirs)
     con = duckdb.connect()
     con.execute(f"""
     COPY (
-      WITH f AS (SELECT * FROM read_parquet('{d}/*_filings.parquet', union_by_name=true)),
-      g AS (SELECT * FROM read_parquet('{d}/*_grants.parquet', union_by_name=true)),
+      WITH f AS (SELECT * FROM read_parquet([{fl}], union_by_name=true)
+                 QUALIFY row_number() OVER (PARTITION BY ein
+                   ORDER BY tax_period_end DESC, return_ts DESC, object_id DESC) = 1),
+      g AS (SELECT * FROM read_parquet([{gl}], union_by_name=true) WHERE object_id IN (SELECT object_id FROM f)),
       agg AS (
         SELECT object_id,
           count(*) FILTER (WHERE amount_type='paid') AS grants_paid_n,
@@ -45,7 +57,7 @@ def build(year):
       FROM f LEFT JOIN agg a USING (object_id)
     ) TO '{out}' (FORMAT PARQUET)""")
     n = con.execute(f"SELECT count(*) FROM read_parquet('{out}')").fetchone()[0]
-    print(f"{n:,} foundation filings -> {out}")
+    print(f"{n:,} foundations (latest filing each) -> {out}")
     return out
 
 
@@ -68,10 +80,10 @@ def load(path):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--year", required=True)
+    ap.add_argument("--years", "--year", nargs="+", required=True)
     ap.add_argument("--load", action="store_true")
     ap.add_argument("--load-only", action="store_true")
     a = ap.parse_args()
-    p = os.path.join(ROOT, "processed", f"foundations_{a.year}.parquet") if a.load_only else build(a.year)
+    p = out_path(a.years) if a.load_only else build(a.years)
     if a.load or a.load_only:
         load(p)
