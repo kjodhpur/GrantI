@@ -6,6 +6,7 @@ import {
   MATCHABLE_CAUSES,
   REGIONS,
   STATES,
+  applyRewrites,
   keywordRegex,
 } from "./taxonomy";
 
@@ -45,7 +46,7 @@ const AMBIGUOUS_ABBR = new Set(["IN", "OR", "ME", "OK", "HI", "OH", "AS", "IT", 
  * ANTHROPIC_API_KEY is configured and the baseline the agent can be compared against.
  */
 export function extractCriteria(text: string): Criteria {
-  const lower = ` ${text.toLowerCase()} `;
+  const lower = applyRewrites(` ${text.toLowerCase()} `);
 
   // causes: keyword hits per cause, strongest first
   const hits = matchers
@@ -53,8 +54,6 @@ export function extractCriteria(text: string): Criteria {
     .filter((h) => h.n > 0)
     .sort((a, b) => b.n - a.n)
     .slice(0, 4);
-  const max = hits[0]?.n ?? 1;
-  const causes = hits.map((h) => ({ id: h.id, weight: Math.round((0.4 + 0.6 * (h.n / max)) * 100) / 100 }));
 
   // states: full names anywhere, two-letter codes only when written in capitals and not a common word
   const states = new Set<string>();
@@ -79,6 +78,17 @@ export function extractCriteria(text: string): Criteria {
     if (new RegExp(`\\b${name}\\b`).test(lower)) ccs.forEach((cc) => countries.add(cc));
   }
   const international = INTERNATIONAL_WORDS.some((w) => lower.includes(w)) || countries.size > 0;
+
+  // Working abroad is geography (scored by geoFit). When the text also names what the nonprofit does, that cause
+  // leads and "international development" stays a secondary cause instead of outweighing it.
+  const intl = "international_development";
+  const demote = international && hits.some((h) => h.id !== intl);
+  const lead = hits.filter((h) => !demote || h.id !== intl);
+  const max = lead[0]?.n ?? 1;
+  const causes = [...lead, ...hits.filter((h) => demote && h.id === intl)].map((h) => ({
+    id: h.id,
+    weight: demote && h.id === intl ? 0.4 : Math.round((0.4 + 0.6 * (h.n / max)) * 100) / 100,
+  }));
 
   return CriteriaSchema.parse({
     mission: text.slice(0, 4000),

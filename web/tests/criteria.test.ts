@@ -38,3 +38,24 @@ test("prompt-injection style text is just text", () => {
   assert.equal(c.limit, 20);
   assert.ok(c.causes.some((x) => x.id === "hunger_food"));
 });
+
+test("working abroad does not outweigh what the nonprofit does", () => {
+  const c = extractCriteria("We fight childhood hunger internationally, mostly East Africa. Typical ask $30,000.");
+  assert.equal(c.causes[0].id, "hunger_food");
+  assert.equal(c.causes[0].weight, 1);
+  const intl = c.causes.find((x) => x.id === "international_development");
+  assert.ok(!intl || intl.weight <= 0.4);
+  assert.equal(c.international, true);
+});
+
+test("international development stays primary when it is the only cause", () => {
+  const c = extractCriteria("International development and relief across Africa.");
+  assert.equal(c.causes[0].id, "international_development");
+  assert.equal(c.causes[0].weight, 1);
+});
+
+test("an animal shelter is not housing", () => {
+  const c = extractCriteria("Animal shelter in Ohio, we need about $10,000");
+  assert.equal(c.causes[0].id, "animals");
+  assert.ok(!c.causes.some((x) => x.id === "housing"));
+});

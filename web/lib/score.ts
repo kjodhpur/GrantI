@@ -48,22 +48,29 @@ export const WEIGHTS = { cause: 0.4, geo: 0.25, size: 0.15, openness: 0.1, capac
 const sat = (x: number, at: number) => Math.min(1, Math.max(0, x / at));
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 
-/** Fit of the foundation's giving to each requested cause, weighted. Shares are "share of all grant dollars touching the cause". */
+/** Fit of the foundation's giving to each requested cause, weighted. Shares are "share of all grant dollars touching the cause".
+ *  The first cause listed is the nonprofit's primary one and counts double, so strong giving to a secondary cause
+ *  (e.g. children in general) cannot make up for no giving to the core cause (e.g. hunger). */
 export function causeFit(p: Profile, c: Criteria): number | null {
   if (!c.causes.length) return null;
   let num = 0;
   let den = 0;
-  for (const { id, weight } of c.causes) {
+  let primary = 0;
+  for (const [i, { id, weight: w }] of c.causes.entries()) {
+    const weight = i === 0 && c.causes.length > 1 ? 2 * w : w;
     const m = p.cause_mix[id];
     const shareUsd = m && p.grants_usd ? m.usd / p.grants_usd : 0;
     const shareN = m && p.grants_n ? m.n / p.grants_n : 0;
     const fit = sat(0.7 * shareUsd + 0.3 * shareN, 0.4); // 40% of giving on a cause is a full-strength focus
+    if (i === 0) primary = fit;
     num += weight * fit;
     den += weight;
   }
   const n = p.grants_n;
   const thin = n < 5 ? 0.6 : n < 10 ? 0.85 : 1; // few grants = weak evidence
-  return (num / den) * thin;
+  // the primary cause gates the rest: no giving to it halves the cause score
+  const gate = c.causes.length > 1 ? 0.5 + 0.5 * primary : 1;
+  return (num / den) * thin * gate;
 }
 
 export function geoFit(p: Profile, c: Criteria): number | null {
@@ -192,6 +199,6 @@ export function rationale(p: Profile, c: Criteria): string[] {
 }
 
 export const CAVEATS = [
-  "Cause and geography labels are keyword-based estimates from recipient names and grant purposes, not IRS classifications.",
+  "Cause labels come from the recipient's IRS NTEE code when the recipient could be matched to the IRS Business Master File, otherwise from keywords in recipient names and grant purposes. They are estimates, not the foundation's own categories.",
   "'Open to applications' means the filer did not tick 'preselected charities only' and listed application contact info. Confirm current guidelines on the foundation's own website before reaching out.",
 ];

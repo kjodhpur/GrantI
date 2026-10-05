@@ -45,14 +45,22 @@ export type Match = {
     grants_n: number;
     grants_usd: number;
     median_grant_usd: number | null;
+    /** Middle half of grant sizes (grants of min_counted_grant_usd or more). */
+    p25_grant_usd: number | null;
+    p75_grant_usd: number | null;
     foreign_share: number;
     new_grantee_rate: number | null;
     repeat_grantee_rate: number | null;
     years: number[];
   };
+  /** Where its grant dollars go: top US recipient states and foreign countries (ISO-like codes from the filings). */
+  top_geography: { states: string[]; countries: string[] };
   example_recipients: Profile["top_recipients"];
   prior_outcomes: OutcomeCounts;
 };
+
+const topKeys = (m: Record<string, { usd: number }>, n: number) =>
+  Object.entries(m).sort((a, b) => b[1].usd - a[1].usd).slice(0, n).map(([k]) => k);
 
 export type MatchResponse = {
   criteria: Criteria;
@@ -98,11 +106,22 @@ export async function matchFoundations(c: Criteria): Promise<MatchResponse> {
     if (wantsIntl) geo.push("foreign_share >= 0.1");
     if (geo.length) where.push(`(${geo.join(" OR ")})`);
   }
+  // With causes, take the foundations giving the largest share of dollars to them, not the largest foundations:
+  // otherwise small, focused funders never reach scoring. Under 10 grants the share is discounted (thin evidence),
+  // so one-grant foundations cannot fill the pool.
+  const focus = c.causes.length
+    ? `(${c.causes
+        .map(({ id, weight }, i) => `${p(i === 0 && c.causes.length > 1 ? 2 * weight : weight)}::numeric * coalesce((cause_mix->${p(id)}->>'usd')::numeric, 0)`)
+        .join(" + ")})
+        / grants_usd * LEAST(1, grants_n / 10.0) DESC, `
+    : "";
   const { rows } = await pool.query(
-    `SELECT ${COLUMNS} FROM foundation_profiles WHERE ${where.join(" AND ")} ORDER BY grants_usd DESC LIMIT ${CANDIDATE_LIMIT}`,
+    `SELECT ${COLUMNS} FROM foundation_profiles WHERE ${where.join(" AND ")} ORDER BY ${focus}grants_usd DESC LIMIT ${CANDIDATE_LIMIT}`,
     params
   );
-  if (rows.length === CANDIDATE_LIMIT) warnings.push(`Candidate pool capped at ${CANDIDATE_LIMIT} largest funders; narrow the criteria for full coverage.`);
+  if (rows.length === CANDIDATE_LIMIT) {
+    warnings.push(`Candidate pool capped at the ${CANDIDATE_LIMIT} ${c.causes.length ? "funders most focused on your causes" : "largest funders"}; narrow the criteria for full coverage.`);
+  }
 
   const scored = rows
     .map((r) => toProfile(r))
@@ -127,8 +146,10 @@ export async function matchFoundations(c: Criteria): Promise<MatchResponse> {
     rationale: rationale(prof, c),
     open_to_apps: !!prof.open_to_apps,
     contact: { name: prof.contact_name, email: prof.contact_email, phone: prof.contact_phone, deadlines: prof.deadlines, materials: prof.app_materials, restrictions: prof.app_restrictions },
-    giving: { grants_n: prof.grants_n, grants_usd: prof.grants_usd, median_grant_usd: prof.median_grant_usd, foreign_share: prof.foreign_share,
+    giving: { grants_n: prof.grants_n, grants_usd: prof.grants_usd, median_grant_usd: prof.median_grant_usd,
+      p25_grant_usd: prof.p25_grant_usd, p75_grant_usd: prof.p75_grant_usd, foreign_share: prof.foreign_share,
       new_grantee_rate: prof.new_grantee_rate, repeat_grantee_rate: prof.repeat_grantee_rate, years: prof.years },
+    top_geography: { states: topKeys(prof.geo_states, 5), countries: topKeys(prof.geo_countries, 5) },
     example_recipients: prof.top_recipients,
     prior_outcomes: outcomes.get(prof.ein) ?? { approached: 0, funded: 0, declined: 0 },
   }));

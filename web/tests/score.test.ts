@@ -74,3 +74,10 @@ test("rationale states grantee rates only when known", () => {
   assert.ok(known.some((l) => l.includes("25% of its 2025 grantees were new") && l.includes("75% were repeat")));
   assert.ok(!rationale(base, crit({})).some((l) => l.includes("grantees were new")));
 });
+
+test("primary cause counts double: secondary-cause giving cannot replace the core cause", () => {
+  const two = crit({ causes: [{ id: "hunger_food" }, { id: "children_youth" }] });
+  const childrenOnly = { ...base, cause_mix: { children_youth: { usd: 600_000, n: 25 } } };
+  const hungerOnly = { ...base, cause_mix: { hunger_food: { usd: 600_000, n: 25 } } };
+  assert.ok(scoreProfile(hungerOnly, two).components.cause! > scoreProfile(childrenOnly, two).components.cause!);
+});
