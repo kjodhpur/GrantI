@@ -3,9 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowUpDown, Bell, Bookmark, BookmarkCheck, Building2, Check, ChevronDown, Database, House, LayoutDashboard, Plus, Search, ShieldCheck, Sparkles, SquareKanban, Trophy, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, Bookmark, BookmarkCheck, Building2, Check, ChevronDown, CircleHelp, Compass, Database, House, LayoutDashboard, Plus, Search, ShieldCheck, Sparkles, SquareKanban, Trophy, X } from "lucide-react";
 import { analyzeProspect, getDashboardMetrics, getOrganizationProfile, getProspects, saveProspect, updateProspectStatus } from "@/lib/api";
 import type { OrganizationProfile, Prospect, ProspectStatus } from "@/types/prospect";
+import ProductTour, { type TourStep } from "./product-tour";
 
 type View = "overview" | "saved" | "pipeline" | "outcomes" | "profile";
 type Fit = "all" | "high" | "good" | "exploratory";
@@ -34,6 +35,25 @@ const sorters: Record<Sort, (a: Prospect, b: Prospect) => number> = {
   name: (a, b) => a.name.localeCompare(b.name),
 };
 
+const TOUR_SEEN_KEY = "gpi-tour-seen";
+const tourSteps: (TourStep & { view?: View })[] = [
+  { eyebrow: "PRODUCT TOUR", title: "Welcome to GPI", view: "overview", body: <><p>GPI helps your fundraising team find the foundations most likely to fund your work, explains why each one fits, and keeps your team in charge of every decision.</p><p>This two-minute tour walks through the whole platform. Everything in this workspace is <b>fictional demo data</b>, so feel free to click around.</p></> },
+  { target: "nav", view: "overview", eyebrow: "WORKSPACE", title: "Five views, one workspace", body: <><p>Move between the parts of your prospecting workflow here:</p><ul><li><b>Overview:</b> ranked prospects and headline numbers</li><li><b>Saved:</b> funders you bookmarked</li><li><b>Pipeline:</b> where every prospect stands</li><li><b>Outcomes:</b> what you applied for and won</li><li><b>Organization profile:</b> what GPI matches against</li></ul></> },
+  { target: "metrics", view: "overview", eyebrow: "OVERVIEW", title: "Your prospecting at a glance", body: <p>How many funders GPI has analyzed for you, how many are a high fit, the potential funding they represent, and how many you are actively pursuing. The <b>Demo data</b> label marks figures that are illustrative.</p> },
+  { target: "analyze", view: "overview", eyebrow: "ANALYZE", title: "Check any funder on demand", body: <p>Heard about a foundation from a board member? Enter its name and your mission, and GPI scores it against your profile and adds it to your list. In this demo it creates a synthetic record so you can see the flow.</p> },
+  { target: "toolbar", view: "overview", eyebrow: "SEARCH & SORT", title: "Find the right funder fast", body: <p>Search by foundation name, focus area, or region. Sort by best match, lowest match, largest typical grant, or name to plan your week.</p> },
+  { target: "filters", view: "overview", eyebrow: "FILTERS", title: "Focus on the best fits", body: <><p><b>Fit bands</b> group prospects by match score: High fit (85+), Good fit (75–84) and Exploratory (under 75).</p><p><b>Status filters</b> show only prospects at a given stage, such as everything still in Research.</p></> },
+  { target: "row", view: "overview", eyebrow: "RANKED PROSPECTS", title: "Every prospect, scored and explained", body: <><p>Each row shows the <b>match score</b>, the funder&apos;s typical grant range, focus areas, geography and any recent signal.</p><p>Use the <b>bookmark</b> to save a prospect and the <b>status menu</b> to move it through your pipeline. Changes appear across every view.</p></> },
+  { target: "prospect-link", view: "overview", eyebrow: "PROSPECT INTELLIGENCE", title: "Open a funder for the full story", body: <><p>Click any foundation name to see its intelligence page:</p><ul><li>A plain-language <b>match summary</b></li><li><b>Why it matches:</b> mission, geography, giving pattern and grant size, each with a confidence level</li><li><b>Evidence</b> from filings and grant history, plus giving trends</li><li>A <b>recommended next action</b> and a printable brief</li></ul></> },
+  { target: "prospect-link", view: "overview", eyebrow: "HUMAN REVIEW", title: "AI recommends. Your team decides.", body: <p>On every prospect page your team can <b>confirm fit</b>, <b>reduce priority</b>, or <b>reject</b> a recommendation and add a note. GPI is a decision-support tool: always verify the sources before acting.</p> },
+  { target: "view-panel", view: "saved", eyebrow: "SAVED", title: "Your shortlist in one place", body: <p>Everything you bookmark collects here, with the same search, filters and status controls as the overview, so you can work from a short list.</p> },
+  { target: "view-panel", view: "pipeline", eyebrow: "PIPELINE", title: "See where every prospect stands", body: <p>Prospects move from <b>Research</b> to <b>Shortlist</b>, <b>Outreach</b>, <b>Applied</b> and <b>Won</b>. Click any name to jump straight to its intelligence page.</p> },
+  { target: "view-panel", view: "outcomes", eyebrow: "OUTCOMES", title: "Learn from every result", body: <p>Track what you won, what is awaiting a decision, and what you chose not to pursue. Recording outcomes helps GPI learn which signals matter to your team.</p> },
+  { target: "view-panel", view: "profile", eyebrow: "ORGANIZATION PROFILE", title: "What GPI matches against", body: <p>Your mission, geography, focus areas and funding need. Every match score is calculated against this profile, so keeping it current keeps your rankings accurate.</p> },
+  { target: "data-links", view: "overview", eyebrow: "REAL DATA", title: "Explore real IRS foundation data", body: <><p><b>Foundation search</b> ranks real private foundations from public IRS Form 990-PF filings using your mission, location and ask.</p><p>The <b>IRS dataset explorer</b> lets you browse the underlying foundation records directly.</p></> },
+  { view: "overview", eyebrow: "YOU'RE READY", title: "That's the platform", body: <><p>Start with your highest-fit prospects, open one to review the evidence, and record your decision. You can replay this tour any time from the <b>Tour</b> button at the top of the page.</p></> },
+];
+
 const viewTitles: Record<View, string> = { overview: "Overview", saved: "Saved prospects", pipeline: "Pipeline", outcomes: "Outcomes", profile: "Organization profile" };
 const grantRange = (prospect: Prospect) => `$${Math.round(prospect.typicalGrantMin / 1000)}k – $${Math.round(prospect.typicalGrantMax / 1000)}k`;
 const isSessionRecord = (prospect: Prospect) => prospect.id.startsWith("analysis-");
@@ -51,7 +71,9 @@ export default function PlatformWorkspace() {
   const [saved, setSaved] = useState<Set<string>>(() => new Set());
   const [analyzeOpen, setAnalyzeOpen] = useState(false);
   const [toast, setToast] = useState("");
+  const [tourIndex, setTourIndex] = useState<number | null>(null);
   const analyzeButton = useRef<HTMLButtonElement>(null);
+  const tourButton = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -60,6 +82,10 @@ export default function PlatformWorkspace() {
       setMetrics(nextMetrics);
       setProspects(nextProspects);
       setProfile(nextProfile);
+      // Offer the tour on a first visit, or always when linked with ?tour=1.
+      let seen = false;
+      try { seen = localStorage.getItem(TOUR_SEEN_KEY) === "1"; } catch { /* storage unavailable */ }
+      if (!seen || new URLSearchParams(window.location.search).get("tour") === "1") setTourIndex(0);
     });
     return () => { active = false; };
   }, []);
@@ -102,6 +128,22 @@ export default function PlatformWorkspace() {
     setToast(`${prospect.name} moved to ${statusLabels[next]}.`);
   }
 
+  function goToTourStep(index: number) {
+    if (index === 0) {
+      resetFilters();
+      setSort("match_desc");
+    }
+    const target = tourSteps[index].view;
+    if (target) setView(target);
+    setTourIndex(index);
+  }
+
+  function closeTour() {
+    setTourIndex(null);
+    try { localStorage.setItem(TOUR_SEEN_KEY, "1"); } catch { /* storage unavailable */ }
+    requestAnimationFrame(() => tourButton.current?.focus());
+  }
+
   function resetFilters() {
     setQuery("");
     setFit("all");
@@ -137,11 +179,11 @@ export default function PlatformWorkspace() {
       <div className="workspace-label"><span>WORKSPACE</span></div>
       <div className="workspace-switch"><span className="workspace-avatar">{profile ? initials(profile.name) : "—"}</span><span><b>{profile?.name ?? "Loading…"}</b><small>Fictional nonprofit</small></span></div>
       <p className="side-section-label">PROSPECTING</p>
-      <nav className="app-nav" aria-label="Workspace">
+      <nav className="app-nav" aria-label="Workspace" data-tour="nav">
         {navItems.map((item) => <button type="button" key={item.id} className={view === item.id ? "active" : undefined} aria-current={view === item.id ? "page" : undefined} aria-label={item.label} onClick={() => setView(item.id)}>{item.icon}<span>{item.label}</span>{item.count !== undefined && <small>{item.count}</small>}</button>)}
       </nav>
       <div className="sidebar-bottom">
-        <Link href="/platform/foundations"><Database size={15} />IRS dataset explorer</Link>
+        <div className="sidebar-data-links" data-tour="data-links"><Link href="/search"><Compass size={15} />Foundation search</Link><Link href="/platform/foundations"><Database size={15} />IRS dataset explorer</Link></div>
         <Link href="/"><House size={15} />Back to site</Link>
         <div className="signed-in"><span className="signed-avatar">DU</span><span><b>Demo user</b><small>Frontend-only session</small></span></div>
       </div>
@@ -150,7 +192,7 @@ export default function PlatformWorkspace() {
     <div className="app-main">
       <header className="app-topbar">
         <div className="breadcrumb"><Link href="/">GPI</Link><span>/</span><span>Workspace</span><span>/</span><b>{viewTitles[view]}</b></div>
-        <div className="app-top-actions"><span className="demo-badge"><i /> DEMO DATA</span><button type="button" className="icon-button" aria-label="Notifications (demo)" onClick={() => setToast("Notifications are not connected in this demo.")}><Bell size={16} /></button><span className="top-avatar" aria-hidden="true">DU</span></div>
+        <div className="app-top-actions"><button ref={tourButton} type="button" className="toolbar-button tour-launch" aria-label="Take the product tour" onClick={() => goToTourStep(0)}><CircleHelp size={14} /><span>Tour</span></button><span className="demo-badge"><i /> DEMO DATA</span><button type="button" className="icon-button" aria-label="Notifications (demo)" onClick={() => setToast("Notifications are not connected in this demo.")}><Bell size={16} /></button><span className="top-avatar" aria-hidden="true">DU</span></div>
       </header>
 
       <main className="app-content">
@@ -158,9 +200,9 @@ export default function PlatformWorkspace() {
           {view === "overview" && <>
             <div className="dashboard-heading">
               <div><p className="eyebrow">PROSPECT WORKSPACE / DEMO DATA</p><h1>Prospect intelligence</h1><p>Fictional funders ranked against {profile.name}&apos;s mission, geography, and funding need.</p></div>
-              <button ref={analyzeButton} type="button" className="button analyze-button" onClick={() => setAnalyzeOpen(true)}><Plus size={14} />Analyze a prospect</button>
+              <button ref={analyzeButton} type="button" className="button analyze-button" data-tour="analyze" onClick={() => setAnalyzeOpen(true)}><Plus size={14} />Analyze a prospect</button>
             </div>
-            <section className="metric-grid" aria-label="Overview metrics (demo data)">
+            <section className="metric-grid" aria-label="Overview metrics (demo data)" data-tour="metrics">
               <div className="metric-card"><span>Prospects analyzed</span><b>{metrics.prospectsAnalyzed.toLocaleString("en-US")}</b><small><i />Demo data</small></div>
               <div className="metric-card metric-fit"><span>High-fit prospects</span><b>{metrics.highFit}</b><small><i />Demo data</small></div>
               <div className="metric-card metric-funding"><span>Potential funding</span><b>{metrics.potentialFunding}</b><small><i />Demo data</small></div>
@@ -178,13 +220,13 @@ export default function PlatformWorkspace() {
             <div className="dashboard-heading"><div><p className="eyebrow">SAVED / DEMO DATA</p><h1>Saved prospects</h1><p>Prospects you bookmarked during this session.</p></div></div>
             <div className="content-section-title" />
             {savedProspects.length === 0
-              ? <div className="prospect-panel"><div className="empty-state"><Bookmark size={20} /><b>No saved prospects yet</b><span>Use the bookmark icon in the overview table to save a prospect.</span><button type="button" className="toolbar-button" onClick={() => setView("overview")}>Go to overview</button></div></div>
-              : <ProspectPanel title="Saved" rows={visible} total={savedProspects.length} {...tableProps} />}
+              ? <div className="prospect-panel" data-tour="view-panel"><div className="empty-state"><Bookmark size={20} /><b>No saved prospects yet</b><span>Use the bookmark icon in the overview table to save a prospect.</span><button type="button" className="toolbar-button" onClick={() => setView("overview")}>Go to overview</button></div></div>
+              : <div data-tour="view-panel"><ProspectPanel title="Saved" rows={visible} total={savedProspects.length} {...tableProps} /></div>}
           </>}
 
           {view === "pipeline" && <div className="simple-view">
             <p className="eyebrow">PIPELINE / DEMO DATA</p><h1>Pipeline</h1><p className="simple-intro">Where each fictional prospect sits today. Change a stage from the overview table or a prospect page.</p>
-            <div className="outcome-dashboard">{pipelineStages.map((stage) => {
+            <div className="outcome-dashboard" data-tour="view-panel">{pipelineStages.map((stage) => {
               const items = prospects.filter((prospect) => prospect.status === stage);
               return <div key={stage}><span>{statusLabels[stage].toUpperCase()}</span><b>{items.length} {items.length === 1 ? "prospect" : "prospects"}</b><small>{items.length ? items.map((item, index) => <span key={item.id}>{index > 0 && " · "}<ProspectName prospect={item} /></span>) : "None yet"}</small></div>;
             })}</div>
@@ -192,7 +234,7 @@ export default function PlatformWorkspace() {
 
           {view === "outcomes" && <div className="simple-view">
             <p className="eyebrow">OUTCOMES / DEMO DATA</p><h1>Outcomes</h1><p className="simple-intro">Recorded results help GPI learn which signals matter to your team. All figures here are fictional.</p>
-            <div className="profile-grid">
+            <div className="profile-grid" data-tour="view-panel">
               {(["won", "applied", "not_pursued"] as ProspectStatus[]).map((outcome) => {
                 const items = prospects.filter((prospect) => prospect.status === outcome);
                 return <article key={outcome}><span>{statusLabels[outcome].toUpperCase()}</span><h2>{items.length} {items.length === 1 ? "prospect" : "prospects"}</h2><p>{items.length ? items.map((item, index) => <span key={item.id}>{index > 0 && " · "}<ProspectName prospect={item} /></span>) : "No prospects recorded at this stage."}</p></article>;
@@ -203,7 +245,7 @@ export default function PlatformWorkspace() {
 
           {view === "profile" && <div className="simple-view">
             <p className="eyebrow">ORGANIZATION PROFILE / FICTIONAL</p><h1>{profile.name}</h1><p className="simple-intro">GPI scores prospects against this profile. Editing is not connected in the frontend demo.</p>
-            <div className="profile-grid">
+            <div className="profile-grid" data-tour="view-panel">
               <article><span>MISSION</span><h2>What we do</h2><p>{profile.mission}</p></article>
               <article><span>GEOGRAPHY</span><h2>Where we work</h2><p>{profile.geography.join(" · ")}</p></article>
               <article><span>FOCUS AREAS</span><h2>Program priorities</h2><p>{profile.focusAreas.join(" · ")}</p></article>
@@ -214,6 +256,7 @@ export default function PlatformWorkspace() {
       </main>
     </div>
 
+    {tourIndex !== null && <ProductTour steps={tourSteps} index={tourIndex} onChange={goToTourStep} onClose={closeTour} />}
     {analyzeOpen && <AnalyzeModal onClose={closeAnalyze} onAdded={addAnalysis} />}
     {toast && <div className="toast" role="status"><Check size={15} />{toast}<button type="button" aria-label="Dismiss notification" onClick={() => setToast("")}><X size={15} /></button></div>}
   </div>;
@@ -244,14 +287,14 @@ interface ProspectPanelProps {
 
 function ProspectPanel({ title, rows, total, query, setQuery, fit, setFit, status, setStatus, sort, setSort, saved, toggleSave, changeStatus, resetFilters }: ProspectPanelProps) {
   return <section className="prospect-panel" aria-label={`${title} table`}>
-    <div className="panel-toolbar">
+    <div className="panel-toolbar" data-tour="toolbar">
       <div className="table-title">{title}<small>{rows.length} of {total} shown</small></div>
       <div className="table-actions">
         <label className="table-search"><Search size={13} /><span className="sr-only">Search prospects</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, focus, region" /></label>
         <label className="toolbar-button status-action"><ArrowUpDown size={13} /><span className="sr-only">Sort prospects</span><select value={sort} onChange={(event) => setSort(event.target.value as Sort)}>{(Object.keys(sortLabels) as Sort[]).map((key) => <option key={key} value={key}>{sortLabels[key]}</option>)}</select><ChevronDown size={13} /></label>
       </div>
     </div>
-    <div className="filter-row">
+    <div className="filter-row" data-tour="filters">
       <div className="filter-group" role="group" aria-label="Filter by fit">{(Object.keys(fitLabels) as Fit[]).map((key) => <button type="button" key={key} className={fit === key ? "selected" : undefined} aria-pressed={fit === key} onClick={() => setFit(key)}>{fitLabels[key]}</button>)}</div>
       <span className="filter-divider" aria-hidden="true" />
       <div className="filter-group" role="group" aria-label="Filter by status"><button type="button" className={status === "all" ? "selected" : undefined} aria-pressed={status === "all"} onClick={() => setStatus("all")}>All statuses</button>{statuses.map((key) => <button type="button" key={key} className={status === key ? "selected" : undefined} aria-pressed={status === key} onClick={() => setStatus(key)}>{statusLabels[key]}</button>)}</div>
@@ -264,9 +307,9 @@ function ProspectPanel({ title, rows, total, query, setQuery, fit, setFit, statu
           const isSaved = saved.has(prospect.id);
           const session = isSessionRecord(prospect);
           const nameContent = <><span className={`foundation-monogram monogram-${index % 4}`} aria-hidden="true">{initials(prospect.name)}</span><span><b>{prospect.name}</b><small>{session ? <><Sparkles size={9} />&nbsp;Session-only analysis</> : <>View intelligence<ArrowLeft size={9} /></>}</small></span></>;
-          return <tr key={prospect.id}>
+          return <tr key={prospect.id} data-tour={index === 0 ? "row" : undefined}>
             <td><button type="button" className={`save-button${isSaved ? " is-saved" : ""}`} aria-pressed={isSaved} aria-label={isSaved ? `Unsave ${prospect.name}` : `Save ${prospect.name}`} onClick={() => toggleSave(prospect)}>{isSaved ? <BookmarkCheck size={15} /> : <Bookmark size={15} />}</button></td>
-            <td>{session ? <div className="foundation-name">{nameContent}</div> : <Link className="foundation-name" href={`/prospects/${prospect.id}`}>{nameContent}</Link>}</td>
+            <td>{session ? <div className="foundation-name">{nameContent}</div> : <Link className="foundation-name" href={`/prospects/${prospect.id}`} data-tour={index === 0 ? "prospect-link" : undefined}>{nameContent}</Link>}</td>
             <td><div className="match-cell"><span>{prospect.matchScore}%</span><span className="score-track" aria-hidden="true"><i style={{ width: `${prospect.matchScore}%` }} /></span></div></td>
             <td>{grantRange(prospect)}</td>
             <td>{prospect.focusAreas.join(", ")}</td>
