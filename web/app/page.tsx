@@ -58,7 +58,6 @@ export default function Home() {
               <motion.div className="hero-mark" initial={{ opacity: 0, scale: 0.94, y: 5 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: reduceMotion ? 0 : 1, delay: reduceMotion ? 0 : 0.08, ease: [0.2, 0.75, 0.25, 1] }}>
                 <Image src="/gpi-mark.png" alt="" fill priority sizes="(max-width: 800px) 76vw, 40vw" />
               </motion.div>
-              <div className="mark-caption"><span>GPI</span><span>Opportunity, in focus</span></div>
             </div>
           </div>
           <div className="hero-bottom wrap"><span>01 — THE OPEN DOOR</span><span>Scroll to explore <ArrowDown size={13} /></span></div>
