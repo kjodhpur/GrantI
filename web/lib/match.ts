@@ -165,3 +165,14 @@ export async function getFoundation(ein: string): Promise<(Profile & { prior_out
   const oc = await outcomeCounts([ein]).catch(() => new Map<string, OutcomeCounts>());
   return { ...toProfile(rows[0]), prior_outcomes: oc.get(ein) ?? { approached: 0, funded: 0, declined: 0 } };
 }
+
+/** Foundations whose name contains `q` (case-insensitive), largest givers first. For "analyze this funder" lookups. */
+export async function searchFoundations(q: string, limit = 10): Promise<Profile[]> {
+  const pool = getPool();
+  if (!pool) throw new Error("NO_DB");
+  const { rows } = await pool.query(
+    `SELECT ${COLUMNS} FROM foundation_profiles WHERE name ILIKE '%' || $1 || '%' ORDER BY grants_usd DESC LIMIT $2`,
+    [q, limit]
+  );
+  return rows.map(toProfile);
+}

@@ -1,10 +1,13 @@
 import { notFound } from "next/navigation";
-import { getProspect } from "@/lib/api";
+import { getFoundation } from "@/lib/match";
 import ProspectDetail from "./prospect-detail";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProspectPage({ params }: PageProps<"/prospects/[id]">) {
   const { id } = await params;
-  const prospect = await getProspect(id);
-  if (!prospect) notFound();
-  return <ProspectDetail prospect={prospect} />;
+  if (!/^\d{9}$/.test(id)) notFound();
+  const foundation = await getFoundation(id);
+  if (!foundation) notFound();
+  return <ProspectDetail foundation={foundation} />;
 }

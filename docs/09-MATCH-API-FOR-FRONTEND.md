@@ -2,6 +2,8 @@
 
 The customer describes their nonprofit; the backend returns ranked private foundations with reasons. It is live (`POST /api/match`), free and deterministic: no LLM, no API key, same input gives the same output. `/search` (`web/components/SearchApp.tsx`) is a working reference client. The LLM agent (`/api/agent`) stays disabled: the project makes no paid LLM calls.
 
+**The `/platform` workspace now runs on this API** (`web/lib/api.ts`, same function names as the old mock layer; mapping in `web/lib/workspace.ts`). The organization profile, saved prospects, pipeline status and review notes are kept in the browser's localStorage until there are user accounts. "Analyze a prospect" looks a foundation up by name (`GET /api/foundations?q=`) and scores it against the profile in the browser with the same functions the server uses. Prospect pages (`/prospects/{ein}`) show the real profile: giving by tax year, largest grants, application contact.
+
 Full field reference: `docs/07-BACKEND-API.md`. Types: `Match` and `MatchResponse` in `web/lib/match.ts`, `CriteriaSchema` in `web/lib/criteria.ts`.
 
 ## Request
@@ -85,4 +87,4 @@ Send `text` alone for a one-box search; add structured fields from form controls
 | `evidence[]` | `example_recipients` (type `grant_history`) plus the filing years (type `filing`, `sourceLabel: "IRS Form 990-PF"`) |
 | `status` | not from matching: the customer's own pipeline state; record approached / funded / declined with `POST /api/outcomes` |
 
-Foundation detail page: `GET /api/foundations/{ein}` returns the full profile (cause mix, geography, 3-year trend, top recipients).
+Foundation detail: `GET /api/foundations/{ein}` returns the full profile (cause mix, geography, 3-year trend, top recipients). Name search: `GET /api/foundations?q=lilly` returns up to 10 profiles whose name contains the text, largest givers first.

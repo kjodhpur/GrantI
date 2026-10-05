@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowLeft, ArrowUpDown, Bell, Bookmark, BookmarkCheck, Building2, Check, ChevronDown, CirclePlay, Compass, Database, House, LayoutDashboard, Plus, Search, ShieldCheck, Sparkles, SquareKanban, Trophy, X } from "lucide-react";
-import { analyzeProspect, getDashboardMetrics, getOrganizationProfile, getProspects, saveProspect, updateProspectStatus } from "@/lib/api";
+import { analyzeProspect, getDashboardMetrics, getMatchSummary, getOrganizationProfile, getProspects, getSavedIds, saveOrganizationProfile, saveProspect, updateProspectStatus } from "@/lib/api";
+import { MATCHABLE_CAUSES } from "@/lib/taxonomy";
 import type { OrganizationProfile, Prospect, ProspectStatus } from "@/types/prospect";
 import ProductTour, { type TourStep } from "./product-tour";
 
@@ -12,6 +13,7 @@ type View = "overview" | "saved" | "pipeline" | "outcomes" | "profile";
 type Fit = "all" | "high" | "good" | "exploratory";
 type Sort = "match_desc" | "match_asc" | "grant_desc" | "name";
 type Metrics = Awaited<ReturnType<typeof getDashboardMetrics>>;
+type Summary = Awaited<ReturnType<typeof getMatchSummary>>;
 
 const statusLabels: Record<ProspectStatus, string> = {
   research: "Research",
@@ -37,10 +39,10 @@ const sorters: Record<Sort, (a: Prospect, b: Prospect) => number> = {
 
 const TOUR_SEEN_KEY = "gpi-tour-seen";
 const tourSteps: (TourStep & { view?: View })[] = [
-  { eyebrow: "PRODUCT TOUR", title: "Welcome to GPI", view: "overview", body: <><p>GPI helps your fundraising team find the foundations most likely to fund your work, explains why each one fits, and keeps your team in charge of every decision.</p><p>This two-minute tour walks through the whole platform. Everything in this workspace is <b>fictional demo data</b>, so feel free to click around.</p></> },
+  { eyebrow: "PRODUCT TOUR", title: "Welcome to GPI", view: "overview", body: <><p>GPI helps your fundraising team find the foundations most likely to fund your work, explains why each one fits, and keeps your team in charge of every decision.</p><p>This two-minute tour walks through the whole platform. The foundations, scores and grants come from public IRS Form 990-PF filings; your profile, saved list and pipeline stay in this browser.</p></> },
   { target: "nav", view: "overview", eyebrow: "WORKSPACE", title: "Five views, one workspace", body: <><p>Move between the parts of your prospecting workflow here:</p><ul><li><b>Overview:</b> ranked prospects and headline numbers</li><li><b>Saved:</b> funders you bookmarked</li><li><b>Pipeline:</b> where every prospect stands</li><li><b>Outcomes:</b> what you applied for and won</li><li><b>Organization profile:</b> what GPI matches against</li></ul></> },
-  { target: "metrics", view: "overview", eyebrow: "OVERVIEW", title: "Your prospecting at a glance", body: <p>How many funders GPI has analyzed for you, how many are a high fit, the potential funding they represent, and how many you are actively pursuing. The <b>Demo data</b> label marks figures that are illustrative.</p> },
-  { target: "analyze", view: "overview", eyebrow: "ANALYZE", title: "Check any funder on demand", body: <p>Heard about a foundation from a board member? Enter its name and your mission, and GPI scores it against your profile and adds it to your list. In this demo it creates a synthetic record so you can see the flow.</p> },
+  { target: "metrics", view: "overview", eyebrow: "OVERVIEW", title: "Your prospecting at a glance", body: <p>How many funders GPI has analyzed for you, how many are a high fit, the potential funding they represent, and how many you are actively pursuing. Each card says how its number is calculated.</p> },
+  { target: "analyze", view: "overview", eyebrow: "ANALYZE", title: "Check any funder on demand", body: <p>Heard about a foundation from a board member? Enter its name, and GPI finds its IRS filings, scores it against your profile and adds it to your list.</p> },
   { target: "toolbar", view: "overview", eyebrow: "SEARCH & SORT", title: "Find the right funder fast", body: <p>Search by foundation name, focus area, or region. Sort by best match, lowest match, largest typical grant, or name to plan your week.</p> },
   { target: "filters", view: "overview", eyebrow: "FILTERS", title: "Focus on the best fits", body: <><p><b>Fit bands</b> group prospects by match score: High fit (85+), Good fit (75–84) and Exploratory (under 75).</p><p><b>Status filters</b> show only prospects at a given stage, such as everything still in Research.</p></> },
   { target: "row", view: "overview", eyebrow: "RANKED PROSPECTS", title: "Every prospect, scored and explained", body: <><p>Each row shows the <b>match score</b>, the funder&apos;s typical grant range, focus areas, geography and any recent signal.</p><p>Use the <b>bookmark</b> to save a prospect and the <b>status menu</b> to move it through your pipeline. Changes appear across every view.</p></> },
@@ -49,13 +51,14 @@ const tourSteps: (TourStep & { view?: View })[] = [
   { target: "view-panel", view: "saved", eyebrow: "SAVED", title: "Your shortlist in one place", body: <p>Everything you bookmark collects here, with the same search, filters and status controls as the overview, so you can work from a short list.</p> },
   { target: "view-panel", view: "pipeline", eyebrow: "PIPELINE", title: "See where every prospect stands", body: <p>Prospects move from <b>Research</b> to <b>Shortlist</b>, <b>Outreach</b>, <b>Applied</b> and <b>Won</b>. Click any name to jump straight to its intelligence page.</p> },
   { target: "view-panel", view: "outcomes", eyebrow: "OUTCOMES", title: "Learn from every result", body: <p>Track what you won, what is awaiting a decision, and what you chose not to pursue. Recording outcomes helps GPI learn which signals matter to your team.</p> },
-  { target: "view-panel", view: "profile", eyebrow: "ORGANIZATION PROFILE", title: "What GPI matches against", body: <p>Your mission, geography, focus areas and funding need. Every match score is calculated against this profile, so keeping it current keeps your rankings accurate.</p> },
+  { target: "view-panel", view: "profile", eyebrow: "ORGANIZATION PROFILE", title: "What GPI matches against", body: <p>Your mission, geography, focus areas and funding need. Every match score is calculated against this profile: edit it here and the list re-ranks.</p> },
   { target: "data-links", view: "overview", eyebrow: "REAL DATA", title: "Explore real IRS foundation data", body: <><p><b>Foundation search</b> ranks real private foundations from public IRS Form 990-PF filings using your mission, location and ask.</p><p>The <b>IRS dataset explorer</b> lets you browse the underlying foundation records directly.</p></> },
-  { view: "overview", eyebrow: "YOU'RE READY", title: "That's the platform", body: <><p>Start with your highest-fit prospects, open one to review the evidence, and record your decision. You can replay this tour any time with the <b>Take the tour</b> tab at the top right, next to Demo data.</p></> },
+  { view: "overview", eyebrow: "YOU'RE READY", title: "That's the platform", body: <><p>Start with your highest-fit prospects, open one to review the evidence, and record your decision. You can replay this tour any time with the <b>Take the tour</b> tab at the top right.</p></> },
 ];
 
 const viewTitles: Record<View, string> = { overview: "Overview", saved: "Saved prospects", pipeline: "Pipeline", outcomes: "Outcomes", profile: "Organization profile" };
-const grantRange = (prospect: Prospect) => `$${Math.round(prospect.typicalGrantMin / 1000)}k – $${Math.round(prospect.typicalGrantMax / 1000)}k`;
+const k = (v: number) => (v >= 1000 ? `$${Math.round(v / 1000)}k` : `$${Math.round(v)}`);
+const grantRange = (prospect: Prospect) => (prospect.typicalGrantMax ? `${k(prospect.typicalGrantMin)} – ${k(prospect.typicalGrantMax)}` : "Not enough data");
 const isSessionRecord = (prospect: Prospect) => prospect.id.startsWith("analysis-");
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0]).join("").toUpperCase();
 
@@ -63,6 +66,10 @@ export default function PlatformWorkspace() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [profile, setProfile] = useState<OrganizationProfile | null>(null);
+  const [summary, setSummary] = useState<Summary>(null);
+  const [phase, setPhase] = useState<"loading" | "setup" | "ready" | "error">("loading");
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
   const [view, setView] = useState<View>("overview");
   const [query, setQuery] = useState("");
   const [fit, setFit] = useState<Fit>("all");
@@ -77,18 +84,39 @@ export default function PlatformWorkspace() {
 
   useEffect(() => {
     let active = true;
-    Promise.all([getDashboardMetrics(), getProspects(), getOrganizationProfile()]).then(([nextMetrics, nextProspects, nextProfile]) => {
+    (async () => {
+      const nextProfile = await getOrganizationProfile();
       if (!active) return;
-      setMetrics(nextMetrics);
-      setProspects(nextProspects);
       setProfile(nextProfile);
-      // Offer the tour on a first visit, or always when linked with ?tour=1.
-      let seen = false;
-      try { seen = localStorage.getItem(TOUR_SEEN_KEY) === "1"; } catch { /* storage unavailable */ }
-      if (!seen || new URLSearchParams(window.location.search).get("tour") === "1") setTourIndex(0);
-    });
+      setSaved(new Set(getSavedIds()));
+      if (!nextProfile) { setPhase("setup"); return; }
+      setPhase("loading");
+      try {
+        const [nextMetrics, nextProspects, nextSummary] = await Promise.all([getDashboardMetrics(), getProspects(), getMatchSummary()]);
+        if (!active) return;
+        setMetrics(nextMetrics);
+        setProspects(nextProspects);
+        setSummary(nextSummary);
+        setPhase("ready");
+        // Offer the tour once rankings are on screen: on a first visit, or always when linked with ?tour=1.
+        let seen = false;
+        try { seen = localStorage.getItem(TOUR_SEEN_KEY) === "1"; } catch { /* storage unavailable */ }
+        if (!seen || new URLSearchParams(window.location.search).get("tour") === "1") setTourIndex(0);
+      } catch (e) {
+        if (!active) return;
+        setError((e as Error).message);
+        setPhase("error");
+      }
+    })();
     return () => { active = false; };
-  }, []);
+  }, [reloadKey]);
+
+  async function saveProfile(next: OrganizationProfile) {
+    await saveOrganizationProfile(next);
+    setView("overview");
+    setReloadKey((count) => count + 1);
+    setToast("Profile saved. Ranking foundations from IRS filings.");
+  }
 
   useEffect(() => {
     if (!toast) return;
@@ -96,7 +124,7 @@ export default function PlatformWorkspace() {
     return () => clearTimeout(timer);
   }, [toast]);
 
-  const loading = metrics === null || profile === null;
+  const loading = phase === "loading";
   const savedProspects = prospects.filter((prospect) => saved.has(prospect.id));
   const activePursuits = prospects.filter((prospect) => ["shortlist", "outreach", "applied"].includes(prospect.status)).length;
 
@@ -118,7 +146,7 @@ export default function PlatformWorkspace() {
       else next.add(prospect.id);
       return next;
     });
-    if (!wasSaved) await saveProspect(prospect.id);
+    await saveProspect(prospect.id, !wasSaved);
     setToast(wasSaved ? `Removed ${prospect.name} from saved prospects.` : `Saved ${prospect.name}.`);
   }
 
@@ -156,11 +184,11 @@ export default function PlatformWorkspace() {
   }
 
   function addAnalysis(prospect: Prospect) {
-    setProspects((current) => [prospect, ...current]);
+    setProspects((current) => [prospect, ...current.filter((item) => item.id !== prospect.id)]);
     resetFilters();
     setView("overview");
     closeAnalyze();
-    setToast(`Added ${prospect.name} as a synthetic demo record.`);
+    setToast(`${prospect.name}: ${prospect.matchScore}% match against your profile.`);
   }
 
   const navItems: { id: View; label: string; icon: ReactNode; count?: number }[] = [
@@ -175,9 +203,9 @@ export default function PlatformWorkspace() {
 
   return <div className="app-frame">
     <aside className="app-sidebar">
-      <Link href="/" className="app-brand" aria-label="GPI home"><Image src="/gpi-mark.png" alt="" width={28} height={28} priority /><span>GPI</span><span className="app-brand-caption">DEMO</span></Link>
+      <Link href="/" className="app-brand" aria-label="GPI home"><Image src="/gpi-mark.png" alt="" width={28} height={28} priority /><span>GPI</span><span className="app-brand-caption">BETA</span></Link>
       <div className="workspace-label"><span>WORKSPACE</span></div>
-      <div className="workspace-switch"><span className="workspace-avatar">{profile ? initials(profile.name) : "—"}</span><span><b>{profile?.name ?? "Loading…"}</b><small>Fictional nonprofit</small></span></div>
+      <div className="workspace-switch"><span className="workspace-avatar">{profile ? initials(profile.name) : "—"}</span><span><b>{profile?.name ?? "Set up your profile"}</b><small>Your organization</small></span></div>
       <p className="side-section-label">PROSPECTING</p>
       <nav className="app-nav" aria-label="Workspace" data-tour="nav">
         {navItems.map((item) => <button type="button" key={item.id} className={view === item.id ? "active" : undefined} aria-current={view === item.id ? "page" : undefined} aria-label={item.label} onClick={() => setView(item.id)}>{item.icon}<span>{item.label}</span>{item.count !== undefined && <small>{item.count}</small>}</button>)}
@@ -185,39 +213,42 @@ export default function PlatformWorkspace() {
       <div className="sidebar-bottom">
         <div className="sidebar-data-links" data-tour="data-links"><Link href="/search"><Compass size={15} />Foundation search</Link><Link href="/platform/foundations"><Database size={15} />IRS dataset explorer</Link></div>
         <Link href="/"><House size={15} />Back to site</Link>
-        <div className="signed-in"><span className="signed-avatar">DU</span><span><b>Demo user</b><small>Frontend-only session</small></span></div>
+        <div className="signed-in"><span className="signed-avatar">{profile ? initials(profile.name) : "—"}</span><span><b>This browser</b><small>Profile and pipeline saved locally</small></span></div>
       </div>
     </aside>
 
     <div className="app-main">
       <header className="app-topbar">
         <div className="breadcrumb"><Link href="/">GPI</Link><span>/</span><span>Workspace</span><span>/</span><b>{viewTitles[view]}</b></div>
-        <div className="app-top-actions"><button ref={tourButton} type="button" className="tour-launch" onClick={() => goToTourStep(0)}><CirclePlay size={14} aria-hidden="true" /><span className="tour-label-long">Take the tour</span><span className="tour-label-short">Tour</span></button><span className="demo-badge"><i /> DEMO DATA</span><button type="button" className="icon-button" aria-label="Notifications (demo)" onClick={() => setToast("Notifications are not connected in this demo.")}><Bell size={16} /></button><span className="top-avatar" aria-hidden="true">DU</span></div>
+        <div className="app-top-actions"><button ref={tourButton} type="button" className="tour-launch" onClick={() => goToTourStep(0)}><CirclePlay size={14} aria-hidden="true" /><span className="tour-label-long">Take the tour</span><span className="tour-label-short">Tour</span></button><span className="demo-badge"><i /> IRS 990-PF DATA</span><button type="button" className="icon-button" aria-label="Notifications" onClick={() => setToast("Notifications are not available yet.")}><Bell size={16} /></button><span className="top-avatar" aria-hidden="true">{profile ? initials(profile.name) : "—"}</span></div>
       </header>
 
       <main className="app-content">
-        {loading ? <div className="empty-state" role="status"><span className="loading-mark" /><b>Loading demo workspace…</b><span>Resolving fictional prospects from the mock API.</span></div> : <>
+        {phase === "setup" || view === "profile" ? <ProfileForm initial={profile} firstRun={phase === "setup"} onSave={saveProfile} onCancel={profile ? () => setView("overview") : undefined} />
+        : phase === "error" ? <div className="empty-state" role="alert"><X size={20} /><b>Could not load rankings</b><span>{error}</span><button type="button" className="toolbar-button" onClick={() => setReloadKey((count) => count + 1)}>Try again</button></div>
+        : loading || !metrics || !profile ? <div className="empty-state" role="status"><span className="loading-mark" /><b>Ranking foundations…</b><span>Scoring private foundations&apos; IRS 990-PF giving against your profile.</span></div>
+        : <>
           {view === "overview" && <>
             <div className="dashboard-heading">
-              <div><p className="eyebrow">PROSPECT WORKSPACE / DEMO DATA</p><h1>Prospect intelligence</h1><p>Fictional funders ranked against {profile.name}&apos;s mission, geography, and funding need.</p></div>
+              <div><p className="eyebrow">PROSPECT WORKSPACE / IRS 990-PF FILINGS</p><h1>Prospect intelligence</h1><p>Private foundations ranked against {profile.name}&apos;s mission, geography, and funding need, from their public IRS Form 990-PF grant records.</p>{summary && <CriteriaLine summary={summary} />}</div>
               <button ref={analyzeButton} type="button" className="button analyze-button" data-tour="analyze" onClick={() => setAnalyzeOpen(true)}><Plus size={14} />Analyze a prospect</button>
             </div>
-            <section className="metric-grid" aria-label="Overview metrics (demo data)" data-tour="metrics">
-              <div className="metric-card"><span>Prospects analyzed</span><b>{metrics.prospectsAnalyzed.toLocaleString("en-US")}</b><small><i />Demo data</small></div>
-              <div className="metric-card metric-fit"><span>High-fit prospects</span><b>{metrics.highFit}</b><small><i />Demo data</small></div>
-              <div className="metric-card metric-funding"><span>Potential funding</span><b>{metrics.potentialFunding}</b><small><i />Demo data</small></div>
-              <div className="metric-card metric-pursuits"><span>Active pursuits</span><b>{metrics.activePursuits}</b><small><i />Demo data</small></div>
+            <section className="metric-grid" aria-label="Overview metrics" data-tour="metrics">
+              <div className="metric-card"><span>Foundations scored</span><b>{metrics.prospectsAnalyzed.toLocaleString("en-US")}</b><small><i />Most focused on your causes</small></div>
+              <div className="metric-card metric-fit"><span>High-fit prospects</span><b>{metrics.highFit}</b><small><i />Score 85+ in your top {prospects.length}</small></div>
+              <div className="metric-card metric-funding"><span>Potential funding</span><b>{metrics.potentialFunding}</b><small><i />Median grant of each 75+ prospect</small></div>
+              <div className="metric-card metric-pursuits"><span>Active pursuits</span><b>{metrics.activePursuits}</b><small><i />Shortlist, outreach, applied</small></div>
             </section>
             <div className="content-section-title"><div><p className="eyebrow">RANKED PROSPECTS</p><h2>Best-fit funders to review</h2></div></div>
             <ProspectPanel title="Prospects" rows={visible} total={prospects.length} {...tableProps} />
             <div className="dashboard-lower">
               <div className="lower-note"><span className="lower-icon"><ShieldCheck size={15} /></span><div><span className="eyebrow">HUMAN REVIEW</span><b>AI recommends. Fundraisers decide.</b><p>Open a prospect to confirm fit, reduce priority, or reject it.</p></div>{prospects[0] && !isSessionRecord(prospects[0]) && <Link href={`/prospects/${prospects[0].id}`} aria-label={`Review ${prospects[0].name}`}><ArrowLeft size={14} /></Link>}</div>
-              <div className="lower-note data-note"><span className="lower-icon"><Database size={15} /></span><div><span className="eyebrow">SEPARATE REAL DATASET</span><b>IRS 990-PF foundation records</b><p>Browse parsed filings, kept apart from this fictional demo.</p></div><Link href="/platform/foundations" aria-label="Open the IRS dataset explorer"><ArrowLeft size={14} /></Link></div>
+              <div className="lower-note data-note"><span className="lower-icon"><Database size={15} /></span><div><span className="eyebrow">SOURCE DATA</span><b>IRS 990-PF foundation records</b><p>Browse each foundation&apos;s latest filing, the data these rankings come from.</p></div><Link href="/platform/foundations" aria-label="Open the IRS dataset explorer"><ArrowLeft size={14} /></Link></div>
             </div>
           </>}
 
           {view === "saved" && <>
-            <div className="dashboard-heading"><div><p className="eyebrow">SAVED / DEMO DATA</p><h1>Saved prospects</h1><p>Prospects you bookmarked during this session.</p></div></div>
+            <div className="dashboard-heading"><div><p className="eyebrow">SAVED</p><h1>Saved prospects</h1><p>Prospects you bookmarked, kept in this browser.</p></div></div>
             <div className="content-section-title" />
             {savedProspects.length === 0
               ? <div className="prospect-panel" data-tour="view-panel"><div className="empty-state"><Bookmark size={20} /><b>No saved prospects yet</b><span>Use the bookmark icon in the overview table to save a prospect.</span><button type="button" className="toolbar-button" onClick={() => setView("overview")}>Go to overview</button></div></div>
@@ -225,7 +256,7 @@ export default function PlatformWorkspace() {
           </>}
 
           {view === "pipeline" && <div className="simple-view">
-            <p className="eyebrow">PIPELINE / DEMO DATA</p><h1>Pipeline</h1><p className="simple-intro">Where each fictional prospect sits today. Change a stage from the overview table or a prospect page.</p>
+            <p className="eyebrow">PIPELINE</p><h1>Pipeline</h1><p className="simple-intro">Where each prospect sits today. Change a stage from the overview table or a prospect page.</p>
             <div className="outcome-dashboard" data-tour="view-panel">{pipelineStages.map((stage) => {
               const items = prospects.filter((prospect) => prospect.status === stage);
               return <div key={stage}><span>{statusLabels[stage].toUpperCase()}</span><b>{items.length} {items.length === 1 ? "prospect" : "prospects"}</b><small>{items.length ? items.map((item, index) => <span key={item.id}>{index > 0 && " · "}<ProspectName prospect={item} /></span>) : "None yet"}</small></div>;
@@ -233,7 +264,7 @@ export default function PlatformWorkspace() {
           </div>}
 
           {view === "outcomes" && <div className="simple-view">
-            <p className="eyebrow">OUTCOMES / DEMO DATA</p><h1>Outcomes</h1><p className="simple-intro">Recorded results help GPI learn which signals matter to your team. All figures here are fictional.</p>
+            <p className="eyebrow">OUTCOMES</p><h1>Outcomes</h1><p className="simple-intro">Recorded results help GPI learn which signals matter to your team. Stages are saved in this browser.</p>
             <div className="profile-grid" data-tour="view-panel">
               {(["won", "applied", "not_pursued"] as ProspectStatus[]).map((outcome) => {
                 const items = prospects.filter((prospect) => prospect.status === outcome);
@@ -243,15 +274,6 @@ export default function PlatformWorkspace() {
             </div>
           </div>}
 
-          {view === "profile" && <div className="simple-view">
-            <p className="eyebrow">ORGANIZATION PROFILE / FICTIONAL</p><h1>{profile.name}</h1><p className="simple-intro">GPI scores prospects against this profile. Editing is not connected in the frontend demo.</p>
-            <div className="profile-grid" data-tour="view-panel">
-              <article><span>MISSION</span><h2>What we do</h2><p>{profile.mission}</p></article>
-              <article><span>GEOGRAPHY</span><h2>Where we work</h2><p>{profile.geography.join(" · ")}</p></article>
-              <article><span>FOCUS AREAS</span><h2>Program priorities</h2><p>{profile.focusAreas.join(" · ")}</p></article>
-              <article><span>FUNDING NEED</span><h2>Current ask</h2><p>{profile.fundingNeed}</p></article>
-            </div>
-          </div>}
         </>}
       </main>
     </div>
@@ -319,22 +341,29 @@ function ProspectPanel({ title, rows, total, query, setQuery, fit, setFit, statu
           </tr>;
         })}</tbody>
       </table></div>}
-    <div className="panel-bottom"><span><i />Demo data · fictional organizations and synthetic evidence</span><span>Match scores support, not replace, human judgment.</span></div>
+    <div className="panel-bottom"><span><i />IRS Form 990-PF filings, 2019–2026 · cause labels are estimates</span><span>Match scores support, not replace, human judgment.</span></div>
   </section>;
 }
 
 function AnalyzeModal({ onClose, onAdded }: { onClose: () => void; onAdded: (prospect: Prospect) => void }) {
   const [name, setName] = useState("");
-  const [mission, setMission] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [message, setMessage] = useState("");
   const dialog = useRef<HTMLDivElement>(null);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!name.trim() || !mission.trim()) return;
+    if (!name.trim()) return;
     setSubmitting(true);
-    const result = await analyzeProspect({ name: name.trim(), mission: mission.trim() });
-    onAdded({ ...result, status: "research", recentSignal: "Synthetic analysis created this session" });
+    setMessage("");
+    try {
+      const result = await analyzeProspect({ name: name.trim() });
+      if (result) onAdded(result);
+      else setMessage(`No private foundation named like "${name.trim()}" in the IRS 990-PF filings.`);
+    } catch (e) {
+      setMessage((e as Error).message);
+    }
+    setSubmitting(false);
   }
 
   function onKeyDown(event: KeyboardEvent) {
@@ -359,17 +388,75 @@ function AnalyzeModal({ onClose, onAdded }: { onClose: () => void; onAdded: (pro
   return <div className="modal-scrim" onMouseDown={(event) => { if (event.target === event.currentTarget && !submitting) onClose(); }}>
     <div ref={dialog} className="analyze-modal" role="dialog" aria-modal="true" aria-labelledby="analyze-title" onKeyDown={onKeyDown}>
       <button type="button" className="modal-close" aria-label="Close" onClick={onClose} disabled={submitting}><X size={18} /></button>
-      <p className="eyebrow">FRONTEND DEMO / SYNTHETIC RESULT</p>
+      <p className="eyebrow">IRS 990-PF LOOKUP</p>
       <h2 id="analyze-title">Analyze a prospect</h2>
-      <p>Enter a funder name and your mission. The demo returns a synthetic record — no real research is performed.</p>
+      <p>Enter a private foundation&apos;s name. GPI finds its IRS 990-PF filings and scores it against your organization profile.</p>
       <form onSubmit={submit}>
         <label htmlFor="analyze-name">Foundation name</label>
-        <input id="analyze-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Canyon Light Foundation" required autoFocus disabled={submitting} />
-        <label htmlFor="analyze-mission">Your mission</label>
-        <textarea id="analyze-mission" value={mission} onChange={(event) => setMission(event.target.value)} rows={3} placeholder="What does your organization do, and where?" required disabled={submitting} />
-        <button type="submit" className="button" disabled={submitting || !name.trim() || !mission.trim()}>{submitting ? <><span className="loading-mark" aria-hidden="true" />Analyzing…</> : <><Sparkles size={14} />Run demo analysis</>}</button>
+        <input id="analyze-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Lilly Endowment" required autoFocus disabled={submitting} />
+        <button type="submit" className="button" disabled={submitting || name.trim().length < 2}>{submitting ? <><span className="loading-mark" aria-hidden="true" />Analyzing…</> : <><Sparkles size={14} />Analyze</>}</button>
+        {message && <p role="alert">{message}</p>}
         {submitting && <span className="sr-only" role="status">Analyzing prospect</span>}
       </form>
     </div>
+  </div>;
+}
+
+function CriteriaLine({ summary }: { summary: NonNullable<Summary> }) {
+  const { criteria, warnings } = summary;
+  const parts = [
+    criteria.causes.length ? criteria.causes.map((c) => MATCHABLE_CAUSES.find((x) => x.id === c.id)?.label ?? c.id).join(", ") : "",
+    criteria.states.length ? criteria.states.join(", ") : "",
+    criteria.international ? "international" : "",
+    criteria.askUsd ? `ask ${k(criteria.askUsd)}` : "",
+  ].filter(Boolean);
+  return <p className="criteria-line"><small>Matched on: {parts.join(" · ") || "no cause or geography found in your profile"}{criteria.requireOpen ? " · open to applications only" : ""}</small>{warnings.map((w) => <small key={w}><br />{w}</small>)}</p>;
+}
+
+function ProfileForm({ initial, firstRun, onSave, onCancel }: { initial: OrganizationProfile | null; firstRun: boolean; onSave: (profile: OrganizationProfile) => void; onCancel?: () => void }) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [mission, setMission] = useState(initial?.mission ?? "");
+  const [geography, setGeography] = useState(initial?.geography.join(", ") ?? "");
+  const [focus, setFocus] = useState<string[]>(initial?.focusAreas ?? []);
+  const [fundingNeed, setFundingNeed] = useState(initial?.fundingNeed ?? "");
+
+  function toggle(label: string) {
+    setFocus((current) => (current.includes(label) ? current.filter((x) => x !== label) : current.length < 5 ? [...current, label] : current));
+  }
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    if (!name.trim() || mission.trim().length < 10) return;
+    onSave({
+      name: name.trim(),
+      mission: mission.trim(),
+      geography: geography.split(",").map((x) => x.trim()).filter(Boolean),
+      focusAreas: focus,
+      fundingNeed: fundingNeed.trim(),
+    });
+  }
+
+  return <div className="simple-view" data-tour="view-panel">
+    <p className="eyebrow">ORGANIZATION PROFILE</p>
+    <h1>{firstRun ? "Tell GPI about your organization" : "Organization profile"}</h1>
+    <p className="simple-intro">GPI ranks private foundations by how their IRS 990-PF grants line up with this profile. It is saved in this browser only.</p>
+    <form className="profile-form" onSubmit={submit}>
+      <label htmlFor="org-name">Organization name</label>
+      <input id="org-name" value={name} onChange={(event) => setName(event.target.value)} required placeholder="e.g. Sonoran Family Food Network" />
+      <label htmlFor="org-mission">Mission: what you do, for whom</label>
+      <textarea id="org-mission" value={mission} onChange={(event) => setMission(event.target.value)} rows={4} required minLength={10} placeholder="e.g. We run school meal programs for children in East Africa." />
+      <fieldset>
+        <legend>Focus areas (pick up to 5; the first one you pick is your primary cause)</legend>
+        <div className="filter-group">{MATCHABLE_CAUSES.map((cause) => <button type="button" key={cause.id} className={focus.includes(cause.label) ? "selected" : undefined} aria-pressed={focus.includes(cause.label)} onClick={() => toggle(cause.label)}>{focus.indexOf(cause.label) === 0 ? "1 · " : ""}{cause.label}</button>)}</div>
+      </fieldset>
+      <label htmlFor="org-geo">Where you work (US states and/or countries, comma separated)</label>
+      <input id="org-geo" value={geography} onChange={(event) => setGeography(event.target.value)} placeholder="e.g. Arizona, Kenya, Uganda" />
+      <label htmlFor="org-need">Funding need</label>
+      <input id="org-need" value={fundingNeed} onChange={(event) => setFundingNeed(event.target.value)} placeholder="e.g. $30,000 for a school meals pilot" />
+      <div className="profile-form-actions">
+        <button type="submit" className="button" disabled={!name.trim() || mission.trim().length < 10}><Check size={14} />{firstRun ? "Find foundations" : "Save and re-rank"}</button>
+        {onCancel && <button type="button" className="toolbar-button" onClick={onCancel}>Cancel</button>}
+      </div>
+    </form>
   </div>;
 }
