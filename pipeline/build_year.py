@@ -21,11 +21,27 @@ def zip_names(year, index_csv):
     html = requests.get(PAGE, headers=P.UA, timeout=60).text
     names = sorted(set(re.findall(rf"/990/xml/{year}/([A-Za-z0-9_]+)\.zip", html)))
     if names:
-        return names
+        return names + unlisted(year, names)
     df = P.load_index(year, index_csv)
     if "XML_BATCH_ID" not in df:
         raise SystemExit(f"no zip links for {year} on {PAGE} and no XML_BATCH_ID in its index")
     return sorted(df.XML_BATCH_ID.unique())
+
+
+def unlisted(year, listed):
+    """Monthly zips the page does not link but the server has (2022_TEOS_XML_02A held a third of 2022's
+    990-PFs). Probed only for years using the <year>_TEOS_XML_MMx naming."""
+    if not any(re.fullmatch(rf"{year}_TEOS_XML_\d\d[A-Z]", n) for n in listed):
+        return []
+    found = []
+    for mm in range(1, 13):
+        for letter in "ABCD":
+            n = f"{year}_TEOS_XML_{mm:02d}{letter}"
+            if n not in listed and requests.head(f"{P.BASE}/{year}/{n}.zip", headers=P.UA, timeout=30).status_code == 200:
+                found.append(n)
+    if found:
+        print("not linked on the IRS page but on the server:", ", ".join(found))
+    return found
 
 
 def download(url, dest, tries=5):
@@ -58,7 +74,7 @@ def main():
     names = [a.only] if a.only else zip_names(a.year, index_csv)
     for n in names:
         out = os.path.join(out_dir, n)
-        if os.path.exists(out + "_filings.parquet"):
+        if os.path.exists(out + "_filings.parquet") or os.path.exists(out + ".empty"):
             print("skip", n); continue
         zp = os.path.join(raw_dir, n + ".zip")
         print("download", n, flush=True)

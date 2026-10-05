@@ -198,6 +198,10 @@ def run_local(year, zip_path, out, index_cache=None):
                 m, g, o = parse_return(read_member(z, n), oid)
                 m["xml_batch_id"] = os.path.basename(zip_path)[:-4]
                 metas.append(m); grants += g; officers += o
+    if not metas:   # some zips (e.g. 2019/2020 *_CT1) hold no 990-PF: leave a marker, not column-less parquet
+        open(f"{out}.empty", "w").close()
+        print(f"0 filings -> {out}.empty")
+        return
     pd.DataFrame(metas).to_parquet(f"{out}_filings.parquet")
     pd.DataFrame(grants).to_parquet(f"{out}_grants.parquet")
     pd.DataFrame(officers).to_parquet(f"{out}_officers.parquet")
