@@ -5,7 +5,7 @@
 ```bash
 cd pipeline
 python resolve.py --download                 # eo1-eo4.csv into $GPI_DATA_DIR/bmf (~340 MB)
-python resolve.py --years 2025 2026          # -> resolved/recipients.parquet + resolved/report.md (~25 min)
+python resolve.py --years 2019 2020 2021 2022 2023 2024 2025 2026   # -> resolved/recipients.parquet + report.md (~35 min)
 ```
 
 `build_profiles.py` uses the result automatically when `resolved/recipients.parquet` exists (recipient identity for the new-grantee rate); `resolve.attach(grants)` adds `recipient_ein`, `recipient_ntee` and `match_confidence` to any grants frame.
@@ -23,6 +23,8 @@ python resolve.py --years 2025 2026          # -> resolved/recipients.parquet + 
 |---|---|---|---|
 | EIN matched | 49.0% | 60.5% | 54.6% |
 | NTEE code known | 39.9% | 50.8% | 49.6% |
+
+All 8 posting years (2019 to 2026, 1,817,623 distinct US organization recipients): EIN matched for 36.1% of distinct recipients, 59.4% of grants and 49.8% of dollars; NTEE known for 29.4% / 49.6% / 45.0%. The share of distinct recipients falls because older years add a long tail of one-off names; coverage by grants barely changes.
 
 NTEE coverage is below the EIN match rate because 29% of BMF records have no NTEE code. By method: exact 416,501; fuzzy accepted or rejected 185,781; city-decided 15,189; same-name ties 7,323; no candidate 343,300.
 
