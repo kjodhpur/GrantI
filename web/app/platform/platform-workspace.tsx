@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowLeft, ArrowUpDown, Bell, Bookmark, BookmarkCheck, Building2, Check, ChevronDown, CircleHelp, Compass, Database, House, LayoutDashboard, Plus, Search, ShieldCheck, Sparkles, SquareKanban, Trophy, X } from "lucide-react";
+import { ArrowLeft, ArrowUpDown, Bell, Bookmark, BookmarkCheck, Building2, Check, ChevronDown, CirclePlay, Compass, Database, House, LayoutDashboard, Plus, Search, ShieldCheck, Sparkles, SquareKanban, Trophy, X } from "lucide-react";
 import { analyzeProspect, getDashboardMetrics, getOrganizationProfile, getProspects, saveProspect, updateProspectStatus } from "@/lib/api";
 import type { OrganizationProfile, Prospect, ProspectStatus } from "@/types/prospect";
 import ProductTour, { type TourStep } from "./product-tour";
@@ -51,7 +51,7 @@ const tourSteps: (TourStep & { view?: View })[] = [
   { target: "view-panel", view: "outcomes", eyebrow: "OUTCOMES", title: "Learn from every result", body: <p>Track what you won, what is awaiting a decision, and what you chose not to pursue. Recording outcomes helps GPI learn which signals matter to your team.</p> },
   { target: "view-panel", view: "profile", eyebrow: "ORGANIZATION PROFILE", title: "What GPI matches against", body: <p>Your mission, geography, focus areas and funding need. Every match score is calculated against this profile, so keeping it current keeps your rankings accurate.</p> },
   { target: "data-links", view: "overview", eyebrow: "REAL DATA", title: "Explore real IRS foundation data", body: <><p><b>Foundation search</b> ranks real private foundations from public IRS Form 990-PF filings using your mission, location and ask.</p><p>The <b>IRS dataset explorer</b> lets you browse the underlying foundation records directly.</p></> },
-  { view: "overview", eyebrow: "YOU'RE READY", title: "That's the platform", body: <><p>Start with your highest-fit prospects, open one to review the evidence, and record your decision. You can replay this tour any time from the <b>Tour</b> button at the top of the page.</p></> },
+  { view: "overview", eyebrow: "YOU'RE READY", title: "That's the platform", body: <><p>Start with your highest-fit prospects, open one to review the evidence, and record your decision. You can replay this tour any time with the <b>Take the tour</b> tab at the top right, next to Demo data.</p></> },
 ];
 
 const viewTitles: Record<View, string> = { overview: "Overview", saved: "Saved prospects", pipeline: "Pipeline", outcomes: "Outcomes", profile: "Organization profile" };
@@ -192,7 +192,7 @@ export default function PlatformWorkspace() {
     <div className="app-main">
       <header className="app-topbar">
         <div className="breadcrumb"><Link href="/">GPI</Link><span>/</span><span>Workspace</span><span>/</span><b>{viewTitles[view]}</b></div>
-        <div className="app-top-actions"><button ref={tourButton} type="button" className="toolbar-button tour-launch" aria-label="Take the product tour" onClick={() => goToTourStep(0)}><CircleHelp size={14} /><span>Tour</span></button><span className="demo-badge"><i /> DEMO DATA</span><button type="button" className="icon-button" aria-label="Notifications (demo)" onClick={() => setToast("Notifications are not connected in this demo.")}><Bell size={16} /></button><span className="top-avatar" aria-hidden="true">DU</span></div>
+        <div className="app-top-actions"><button ref={tourButton} type="button" className="tour-launch" onClick={() => goToTourStep(0)}><CirclePlay size={14} aria-hidden="true" /><span className="tour-label-long">Take the tour</span><span className="tour-label-short">Tour</span></button><span className="demo-badge"><i /> DEMO DATA</span><button type="button" className="icon-button" aria-label="Notifications (demo)" onClick={() => setToast("Notifications are not connected in this demo.")}><Bell size={16} /></button><span className="top-avatar" aria-hidden="true">DU</span></div>
       </header>
 
       <main className="app-content">

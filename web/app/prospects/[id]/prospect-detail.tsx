@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, ArrowUpRight, Bookmark, Check, ChevronDown, CircleHelp, Download, FileText, MessageSquareText, Send, ShieldCheck, Sparkles, Target } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Bookmark, Check, ChevronDown, CircleHelp, CirclePlay, Download, FileText, MessageSquareText, Send, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { saveProspect, submitHumanReview, updateProspectStatus } from "@/lib/api";
 import type { Prospect, ProspectStatus } from "@/types/prospect";
 
@@ -38,7 +38,7 @@ export default function ProspectDetail({ prospect }: { prospect: Prospect }) {
   }
 
   return <main className="detail-page">
-    <header className="detail-topbar"><Link className="brand" href="/platform"><span className="brand-square">G</span><span>GPI</span></Link><div><Link href="/platform">Workspace</Link><span>/</span><b>Prospect intelligence</b></div><span className="demo-badge"><i /> DEMO DATA</span></header>
+    <header className="detail-topbar"><Link className="brand" href="/platform"><span className="brand-square">G</span><span>GPI</span></Link><div><Link href="/platform">Workspace</Link><span>/</span><b>Prospect intelligence</b></div><Link className="tour-launch" href="/platform?tour=1"><CirclePlay size={14} aria-hidden="true" /><span className="tour-label-long">Take the tour</span><span className="tour-label-short">Tour</span></Link><span className="demo-badge"><i /> DEMO DATA</span></header>
     <div className="detail-content">
       <Link className="back-link" href="/platform"><ArrowLeft size={15} />Back to prospects</Link>
       <div className="detail-heading"><div><p className="eyebrow">PROSPECT INTELLIGENCE / SYNTHETIC RECORD</p><h1>{prospect.name}</h1><p className="detail-subtitle">Private foundation · Modeled giving profile · Arizona / Southwest</p></div><div className="detail-score"><div className="score-ring"><span>{prospect.matchScore}<small>%</small></span></div><div><b>GPI match</b><span>Strong alignment</span></div></div></div>
