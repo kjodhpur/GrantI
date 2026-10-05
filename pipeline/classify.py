@@ -12,6 +12,9 @@ Rules
   * A grant gets every cause scoring >= 60% of its best score (and >= 1 hit), max 3, so "child nutrition in
     Ethiopia" is children + hunger + international rather than one arbitrary winner. Shares built from
     these labels mean "share of dollars touching this cause" and can sum to more than 100%.
+  * When the recipient matched the IRS Business Master File (pipeline/resolve.py), its NTEE code adds the
+    cause with the longest matching `ntee` prefix in taxonomy.json, ranked first: the registered purpose of
+    the organization is a stronger signal than keywords. Keywords still add secondary labels.
   * Order in taxonomy.json breaks ties when trimming to 3. 'grantmaking_intermediary' is dropped whenever
     a real cause also matches, and is otherwise excluded from matching downstream.
 """
@@ -48,13 +51,36 @@ class Classifier:
     def __init__(self, taxonomy=None):
         self.tax = taxonomy or load_taxonomy()
         self.causes = [(c["id"], _compile(c["keywords"])) for c in self.tax["causes"]]
+        self.ntee = sorted(((code, c["id"]) for c in self.tax["causes"] for code in c.get("ntee", [])),
+                           key=lambda x: -len(x[0]))     # longest prefix first
+        self.rewrites = [(re.compile(r"\b" + re.escape(a) + r"\b"), b) for a, b in self.tax.get("rewrites", [])]
         generic = sorted(self.tax["generic_purposes"], key=len, reverse=True)
         self.generic = re.compile(r"\b(" + "|".join(re.escape(g) for g in generic) + r")\b")
 
-    def classify(self, name, purpose):
+    def ntee_cause(self, ntee):
+        if not isinstance(ntee, str) or not ntee:
+            return None
+        code = ntee.strip().upper()
+        return next((cid for prefix, cid in self.ntee if code.startswith(prefix)), None)
+
+    def classify(self, name, purpose, ntee=None):
         """Return a list of cause ids, best first. [UNCLASSIFIED] when nothing matches."""
-        name = name.lower() if isinstance(name, str) else ""       # nulls arrive as NaN from pandas
-        purpose = self.generic.sub(" ", purpose.lower()) if isinstance(purpose, str) else ""
+        keep = self._keywords(name, purpose)
+        nc = self.ntee_cause(ntee)
+        if nc:
+            keep = [nc] + [c for c in keep if c not in (nc, UNCLASSIFIED)]
+        if len(keep) > 1 and INTERMEDIARY in keep:
+            keep.remove(INTERMEDIARY)
+        return keep[:MAX_LABELS]
+
+    def _rewrite(self, text):
+        for rx, repl in self.rewrites:
+            text = rx.sub(repl, text)
+        return text
+
+    def _keywords(self, name, purpose):
+        name = self._rewrite(name.lower()) if isinstance(name, str) else ""       # nulls arrive as NaN from pandas
+        purpose = self.generic.sub(" ", self._rewrite(purpose.lower())) if isinstance(purpose, str) else ""
         scored = []
         for order, (cid, rx) in enumerate(self.causes):
             score = NAME_WEIGHT * len(rx.findall(name)) + PURPOSE_WEIGHT * len(rx.findall(purpose))
@@ -69,11 +95,13 @@ class Classifier:
             keep.remove(INTERMEDIARY)
         return keep[:MAX_LABELS]
 
-    def classify_frame(self, df, name_col="recipient_name_raw", purpose_col="grant_purpose"):
-        """Return a Series of cause-id lists aligned to df. Classifies each unique pair once."""
-        pairs = df[[name_col, purpose_col]].drop_duplicates().reset_index(drop=True)
-        pairs["cause_list"] = [self.classify(n, p) for n, p in zip(pairs[name_col], pairs[purpose_col])]
-        merged = df[[name_col, purpose_col]].merge(pairs, on=[name_col, purpose_col], how="left")
+    def classify_frame(self, df, name_col="recipient_name_raw", purpose_col="grant_purpose", ntee_col="recipient_ntee"):
+        """Return a Series of cause-id lists aligned to df. Classifies each unique (name, purpose, NTEE) once."""
+        cols = [name_col, purpose_col] + ([ntee_col] if ntee_col in df else [])
+        keys = df[cols].drop_duplicates().reset_index(drop=True)
+        ntee = keys[ntee_col] if ntee_col in keys else [None] * len(keys)
+        keys["cause_list"] = [self.classify(n, p, t) for n, p, t in zip(keys[name_col], keys[purpose_col], ntee)]
+        merged = df[cols].merge(keys, on=cols, how="left")
         return pd.Series(merged["cause_list"].values, index=df.index)
 
 

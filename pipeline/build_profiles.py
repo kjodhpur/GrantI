@@ -29,15 +29,29 @@ INDIVIDUAL = "Individual recipient (name not stored)"
 CFG = json.load(open(os.path.join(os.path.dirname(__file__), "..", "web", "lib", "scoring-config.json")))
 MIN_COUNTED = CFG["min_counted_grant_usd"]     # smaller grants count in dollar totals, not in counts or sizes
 LOOKBACK = CFG["grantee_lookback_years"]
+PROFILE_YEARS = CFG["profile_tax_years"]       # each profile covers its foundation's latest N tax years
+GRANT_COLS = ["object_id", "funder_ein", "amount_type", "recipient_name_raw", "is_individual", "recipient_city",
+              "recipient_state", "recipient_country", "grant_purpose", "amount_usd"]
 
 
-def read_dirs(dirs):
-    def read(pattern):
-        files = [f for d in dirs for f in glob.glob(os.path.join(d, pattern))]
-        if not files:
-            raise SystemExit(f"no files matching {pattern} in {dirs}. Run build_year.py first.")
-        return pd.concat([pd.read_parquet(f) for f in files], ignore_index=True)
-    return read("*_filings.parquet"), read("*_grants.parquet")
+def files(dirs, pattern):
+    found = [f for d in dirs for f in glob.glob(os.path.join(d, pattern))]
+    if not found:
+        raise SystemExit(f"no files matching {pattern} in {dirs}. Run build_year.py first.")
+    return found
+
+
+def read_grants(dirs, keep_ids):
+    """Paid grants of the kept filings only, file by file, so many posting years fit in memory."""
+    import pyarrow.parquet as pq
+    parts = []
+    for f in files(dirs, "*_grants.parquet"):
+        if "is_individual" not in pq.read_schema(f).names:
+            raise SystemExit(f"{f} predates the individual-recipient privacy fix (no is_individual column). "
+                             "Delete data/interim/<year> and rerun build_year.py.")
+        d = pd.read_parquet(f, columns=GRANT_COLS)
+        parts.append(d[(d.amount_type == "paid") & d.object_id.isin(keep_ids)])
+    return pd.concat(parts, ignore_index=True)
 
 
 def truthy(v):
@@ -62,11 +76,7 @@ def sums(df, by):
 
 def recipient_keys(g):
     """Stable recipient identity: BMF EIN when matched, else normalized name + state. None for individuals."""
-    if os.path.exists(resolve.OUT):
-        ein = resolve.attach(g).recipient_ein
-    else:
-        print(f"note: {resolve.OUT} missing, identifying recipients by name + state only")
-        ein = pd.Series(None, index=g.index, dtype=object)
+    ein = g.recipient_ein if "recipient_ein" in g else pd.Series(None, index=g.index, dtype=object)
     name = g.recipient_name_raw.map(resolve.norm_name)
     by_name = "N:" + name + "|" + g.recipient_state.fillna(g.country)
     key = ein.where(ein.notna(), by_name)
@@ -92,11 +102,25 @@ def grantee_rates(g, filings):
     return out
 
 
+def classification_stats(g, clf):
+    """How each grant got its cause: NTEE (BMF), keywords only, or nothing. Written next to profiles.parquet."""
+    unc = g.cause_list.map(lambda c: c == [UNCLASSIFIED])
+    ntee = (g.recipient_ntee.map(clf.ntee_cause).notna() if "recipient_ntee" in g
+            else pd.Series(False, index=g.index))
+    usd = g.amount_usd.sum()
+    rows = {"ntee (BMF)": ntee, "keywords only": ~ntee & ~unc, "unclassified": unc}
+    stats = {k: {"grants": round(float(m.mean()), 4), "dollars": round(float(g.amount_usd[m].sum() / usd), 4)}
+             for k, m in rows.items()}
+    stats["grants_total"], stats["dollars_total"] = int(len(g)), int(usd)
+    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+    json.dump(stats, open(os.path.join(os.path.dirname(OUT), "classification_stats.json"), "w"), indent=2)
+    for k in rows:
+        print(f"  cause from {k:14}: {stats[k]['grants']:.1%} of grants, {stats[k]['dollars']:.1%} of dollars")
+    return stats
+
+
 def build(dirs, intermediary_ids):
-    filings, grants = read_dirs(dirs)
-    if "is_individual" not in grants:
-        raise SystemExit("grant files predate the individual-recipient privacy fix (no is_individual column). "
-                         "Delete data/interim/<year> and rerun build_year.py.")
+    filings = pd.concat([pd.read_parquet(f) for f in files(dirs, "*_filings.parquet")], ignore_index=True)
     filings = filings.drop_duplicates("object_id")
     # Amended/superseding returns share EIN + tax period but have new object_ids: keep only the latest so
     # grants are never double counted (matters most when several posting years are combined).
@@ -105,12 +129,24 @@ def build(dirs, intermediary_ids):
                .drop_duplicates(["ein", "tax_period_end"], keep="last"))
     if len(filings) < n0:
         print(f"dropped {n0 - len(filings):,} superseded/amended returns")
-    grants = grants[grants.object_id.isin(filings.object_id)]
     filings["tax_year"] = pd.to_datetime(filings["tax_period_end"], errors="coerce").dt.year
-    g = grants[(grants.amount_type == "paid") & grants.amount_usd.notna() & (grants.amount_usd > 0)].copy()
+    latest_year = filings.groupby("ein").tax_year.transform("max")
+    n1 = len(filings)
+    filings = filings[filings.tax_year > latest_year - PROFILE_YEARS]
+    print(f"kept each foundation's latest {PROFILE_YEARS} tax years: {len(filings):,} of {n1:,} filings")
+    grants = read_grants(dirs, set(filings.object_id))
+    g = grants[grants.amount_usd.notna() & (grants.amount_usd > 0)]
     g = g.merge(filings[["object_id", "tax_year"]], on="object_id", how="left").reset_index(drop=True)
+    if os.path.exists(resolve.OUT):
+        g = resolve.attach(g)
+        g["recipient_ntee"] = g.recipient_ntee.fillna(g.recipient_ntee_major)   # unanimous same-name ties
+        print(f"BMF: EIN for {g.recipient_ein.notna().mean():.1%} of grants, NTEE for {g.recipient_ntee.notna().mean():.1%}")
+    else:
+        print(f"note: {resolve.OUT} missing: no NTEE labels, recipients identified by name + state only")
     print(f"{len(filings):,} filings, {len(g):,} paid grants; classifying...")
-    g["cause_list"] = Classifier().classify_frame(g)
+    clf = Classifier()
+    g["cause_list"] = clf.classify_frame(g)
+    classification_stats(g, clf)
     g["cause"] = g.cause_list.str[0]                                    # primary label, for display
     g["country"] = g["recipient_country"].fillna("US")
     g["is_foreign"] = g["country"] != "US"

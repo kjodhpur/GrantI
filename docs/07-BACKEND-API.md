@@ -64,7 +64,7 @@ See `.env.example`. On Vercel add `DATABASE_URL`, `APP_ACCESS_KEY` and `ANTHROPI
 
 ## Classification (what "cause" means here)
 
-`pipeline/classify.py` labels each grant from recipient name + purpose using the keyword vocabulary in `web/lib/taxonomy.json` (shared with the web app so the query parser and the classifier agree). Up to 3 labels per grant, so shares mean "share of dollars **touching** a cause" and can sum past 100%. It is a baseline: expect misses and some false hits. Task 3 in `docs/06-NEXT-TASKS.md` measures it against a hand-labelled sample and adds an LLM pass.
+`pipeline/classify.py` labels each grant from recipient name + purpose + NTEE, with no LLM (the project makes no paid LLM calls). When the recipient matched the IRS Business Master File (`pipeline/resolve.py`, docs/08), its NTEE code gives the first label through the `ntee` prefixes in `web/lib/taxonomy.json`; keywords in the recipient name and purpose add more (the same vocabulary the query parser uses). Each unique (name, purpose, NTEE) is classified once. Up to 3 labels per grant, so shares mean "share of dollars **touching** a cause" and can sum past 100%. Grants with neither stay `unclassified`; `build_profiles.py` writes the shares to `processed/classification_stats.json`. Profiles cover each foundation's latest 3 tax years (`profile_tax_years` in `web/lib/scoring-config.json`).
 
 ## Refreshing data
 

@@ -53,7 +53,7 @@ pipeline/build_foundations.py (DuckDB rollup) <---------------+
 ## What was tested and what was not
 
 Tested: pipeline on real IRS zips, Postgres load, Next.js build and runtime query, the missing-`DATABASE_URL` message.
-Not tested: `docker compose` (YAML validated only), full-history years, LLM classification (not built yet).
+Not tested: `docker compose` (YAML validated only), full-history years, classification accuracy on a hand-labelled sample (the project makes no paid LLM calls: labels come from keywords + recipient NTEE).
 
 ## Rules
 

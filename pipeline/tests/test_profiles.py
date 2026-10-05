@@ -51,3 +51,24 @@ def test_grantee_rates(tmp_path, monkeypatch):
     ])
     assert (p.loc["001", "new_grantee_rate"], p.loc["001", "repeat_grantee_rate"]) == (0.5, 0.5)
     assert pd.isna(p.loc["002", "new_grantee_rate"]) and pd.isna(p.loc["002", "repeat_grantee_rate"])
+
+
+def test_profile_covers_latest_tax_years_only(tmp_path, monkeypatch):
+    years = [2020, 2021, 2023, 2024, 2025]           # 2020 and 2021 fall outside the 3-year window
+    p = build(tmp_path, monkeypatch, [filing("001", y) for y in years],
+              [grant("001", y, f"Org {y}", 1_000 * (y - 2019)) for y in years]).loc["001"]
+    assert list(p.years) == [2023, 2024, 2025]
+    assert p.grants_usd == 4_000 + 5_000 + 6_000
+
+
+def test_ntee_label_from_bmf(tmp_path, monkeypatch):
+    import resolve
+    pd.DataFrame([dict(name_norm=resolve.norm_name("Desert Hope Center"), state="AZ", city_norm="PHOENIX",
+                       recipient_ein="000000099", ntee="K31", ntee_major="K", confidence=1.0, matched=True)]
+                 ).to_parquet(tmp_path / "recipients.parquet")
+    pd.DataFrame([filing("001", 2025)]).to_parquet(tmp_path / "t_filings.parquet")
+    pd.DataFrame([grant("001", 2025, "Desert Hope Center", 5_000)]).to_parquet(tmp_path / "t_grants.parquet")
+    monkeypatch.setattr(bp, "OUT", str(tmp_path / "out" / "profiles.parquet"))
+    monkeypatch.setattr(bp.resolve, "OUT", str(tmp_path / "recipients.parquet"))
+    p = bp.build([str(tmp_path)], []).set_index("ein").loc["001"]
+    assert "hunger_food" in p.causes                  # no food keyword in name or purpose: only NTEE K31 says food
