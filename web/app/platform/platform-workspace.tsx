@@ -7,6 +7,7 @@ import { ArrowLeft, ArrowUpDown, Bell, Bookmark, BookmarkCheck, Building2, Check
 import { analyzeProspect, getDashboardMetrics, getMatchSummary, getOrganizationProfile, getProspects, getSavedIds, saveOrganizationProfile, saveProspect, updateProspectStatus } from "@/lib/api";
 import { MATCHABLE_CAUSES } from "@/lib/taxonomy";
 import type { OrganizationProfile, Prospect, ProspectStatus } from "@/types/prospect";
+import OnboardingWizard from "./onboarding-wizard";
 import ProductTour, { type TourStep } from "./product-tour";
 
 type View = "overview" | "saved" | "pipeline" | "outcomes" | "profile";
@@ -70,6 +71,10 @@ export default function PlatformWorkspace() {
   const [phase, setPhase] = useState<"loading" | "setup" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  // the question-by-question profile wizard: open on a first visit (no profile yet) and when editing
+  const [wizard, setWizard] = useState<"closed" | "first" | "edit">("closed");
+  const wizardOpen = useRef(false);
+  wizardOpen.current = wizard !== "closed";
   const [view, setView] = useState<View>("overview");
   const [query, setQuery] = useState("");
   const [fit, setFit] = useState<Fit>("all");
@@ -89,7 +94,7 @@ export default function PlatformWorkspace() {
       if (!active) return;
       setProfile(nextProfile);
       setSaved(new Set(getSavedIds()));
-      if (!nextProfile) { setPhase("setup"); return; }
+      if (!nextProfile) { setPhase("setup"); setWizard("first"); return; }
       setPhase("loading");
       try {
         const [nextMetrics, nextProspects, nextSummary] = await Promise.all([getDashboardMetrics(), getProspects(), getMatchSummary()]);
@@ -98,10 +103,7 @@ export default function PlatformWorkspace() {
         setProspects(nextProspects);
         setSummary(nextSummary);
         setPhase("ready");
-        // Offer the tour once rankings are on screen: on a first visit, or always when linked with ?tour=1.
-        let seen = false;
-        try { seen = localStorage.getItem(TOUR_SEEN_KEY) === "1"; } catch { /* storage unavailable */ }
-        if (!seen || new URLSearchParams(window.location.search).get("tour") === "1") setTourIndex(0);
+        if (!wizardOpen.current) offerTour();   // after the wizard, offerTour runs when it closes
       } catch (e) {
         if (!active) return;
         setError((e as Error).message);
@@ -111,11 +113,25 @@ export default function PlatformWorkspace() {
     return () => { active = false; };
   }, [reloadKey]);
 
-  async function saveProfile(next: OrganizationProfile) {
+  // Offer the tour once rankings are on screen: on a first visit, or always when linked with ?tour=1.
+  function offerTour() {
+    let seen = false;
+    try { seen = localStorage.getItem(TOUR_SEEN_KEY) === "1"; } catch { /* storage unavailable */ }
+    if (!seen || new URLSearchParams(window.location.search).get("tour") === "1") setTourIndex(0);
+  }
+
+  async function submitProfile(next: OrganizationProfile) {
+    setPhase("loading");          // the wizard's closing screen waits for the new rankings
     await saveOrganizationProfile(next);
-    setView("overview");
     setReloadKey((count) => count + 1);
-    setToast("Profile saved. Ranking foundations from IRS filings.");
+  }
+
+  function wizardDone() {
+    const first = wizard === "first";
+    setWizard("closed");
+    setView("overview");
+    if (first) offerTour();
+    else setToast("Profile updated and foundations re-ranked.");
   }
 
   useEffect(() => {
@@ -224,7 +240,7 @@ export default function PlatformWorkspace() {
       </header>
 
       <main className="app-content">
-        {phase === "setup" || view === "profile" ? <ProfileForm initial={profile} firstRun={phase === "setup"} onSave={saveProfile} onCancel={profile ? () => setView("overview") : undefined} />
+        {phase === "setup" ? <div className="empty-state wizard-backdrop"><span className="loading-mark" /><b>Tell us about your organization</b><span>A few quick questions, then GPI ranks private foundations from their IRS 990-PF filings.</span><button type="button" className="toolbar-button" onClick={() => setWizard("first")}>Start</button></div>
         : phase === "error" ? <div className="empty-state" role="alert"><X size={20} /><b>Could not load rankings</b><span>{error}</span><button type="button" className="toolbar-button" onClick={() => setReloadKey((count) => count + 1)}>Try again</button></div>
         : loading || !metrics || !profile ? <div className="empty-state" role="status"><span className="loading-mark" /><b>Ranking foundations…</b><span>Scoring private foundations&apos; IRS 990-PF giving against your profile.</span></div>
         : <>
@@ -274,10 +290,23 @@ export default function PlatformWorkspace() {
             </div>
           </div>}
 
+          {view === "profile" && <div className="simple-view">
+            <p className="eyebrow">ORGANIZATION PROFILE</p><h1>{profile.name}</h1><p className="simple-intro">GPI scores prospects against this profile. It is saved in this browser.</p>
+            <div className="profile-grid" data-tour="view-panel">
+              <article><span>MISSION</span><h2>What we do</h2><p>{profile.mission}</p></article>
+              <article><span>GEOGRAPHY</span><h2>Where we work</h2><p>{profile.geography.join(" · ") || "Read from your mission"}</p></article>
+              <article><span>FOCUS AREAS</span><h2>Program priorities</h2><p>{profile.focusAreas.join(" · ") || "Read from your mission"}</p></article>
+              <article><span>FUNDING NEED</span><h2>Current ask</h2><p>{profile.fundingNeed || "Not set"}</p></article>
+            </div>
+            <div className="profile-form-actions"><button type="button" className="button" onClick={() => setWizard("edit")}><Building2 size={14} />Edit profile</button></div>
+          </div>}
         </>}
       </main>
     </div>
 
+    {wizard !== "closed" && <OnboardingWizard key={wizard} initial={wizard === "edit" ? profile : null} editing={wizard === "edit"}
+      ready={phase === "ready"} resultCount={prospects.length} onSubmit={submitProfile} onDone={wizardDone}
+      onClose={wizard === "edit" ? () => setWizard("closed") : undefined} />}
     {tourIndex !== null && <ProductTour steps={tourSteps} index={tourIndex} onChange={goToTourStep} onClose={closeTour} />}
     {analyzeOpen && <AnalyzeModal onClose={closeAnalyze} onAdded={addAnalysis} />}
     {toast && <div className="toast" role="status"><Check size={15} />{toast}<button type="button" aria-label="Dismiss notification" onClick={() => setToast("")}><X size={15} /></button></div>}
@@ -411,52 +440,4 @@ function CriteriaLine({ summary }: { summary: NonNullable<Summary> }) {
     criteria.askUsd ? `ask ${k(criteria.askUsd)}` : "",
   ].filter(Boolean);
   return <p className="criteria-line"><small>Matched on: {parts.join(" · ") || "no cause or geography found in your profile"}{criteria.requireOpen ? " · open to applications only" : ""}</small>{warnings.map((w) => <small key={w}><br />{w}</small>)}</p>;
-}
-
-function ProfileForm({ initial, firstRun, onSave, onCancel }: { initial: OrganizationProfile | null; firstRun: boolean; onSave: (profile: OrganizationProfile) => void; onCancel?: () => void }) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [mission, setMission] = useState(initial?.mission ?? "");
-  const [geography, setGeography] = useState(initial?.geography.join(", ") ?? "");
-  const [focus, setFocus] = useState<string[]>(initial?.focusAreas ?? []);
-  const [fundingNeed, setFundingNeed] = useState(initial?.fundingNeed ?? "");
-
-  function toggle(label: string) {
-    setFocus((current) => (current.includes(label) ? current.filter((x) => x !== label) : current.length < 5 ? [...current, label] : current));
-  }
-
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (!name.trim() || mission.trim().length < 10) return;
-    onSave({
-      name: name.trim(),
-      mission: mission.trim(),
-      geography: geography.split(",").map((x) => x.trim()).filter(Boolean),
-      focusAreas: focus,
-      fundingNeed: fundingNeed.trim(),
-    });
-  }
-
-  return <div className="simple-view" data-tour="view-panel">
-    <p className="eyebrow">ORGANIZATION PROFILE</p>
-    <h1>{firstRun ? "Tell GPI about your organization" : "Organization profile"}</h1>
-    <p className="simple-intro">GPI ranks private foundations by how their IRS 990-PF grants line up with this profile. It is saved in this browser only.</p>
-    <form className="profile-form" onSubmit={submit}>
-      <label htmlFor="org-name">Organization name</label>
-      <input id="org-name" value={name} onChange={(event) => setName(event.target.value)} required placeholder="e.g. Sonoran Family Food Network" />
-      <label htmlFor="org-mission">Mission: what you do, for whom</label>
-      <textarea id="org-mission" value={mission} onChange={(event) => setMission(event.target.value)} rows={4} required minLength={10} placeholder="e.g. We run school meal programs for children in East Africa." />
-      <fieldset>
-        <legend>Focus areas (pick up to 5; the first one you pick is your primary cause)</legend>
-        <div className="filter-group">{MATCHABLE_CAUSES.map((cause) => <button type="button" key={cause.id} className={focus.includes(cause.label) ? "selected" : undefined} aria-pressed={focus.includes(cause.label)} onClick={() => toggle(cause.label)}>{focus.indexOf(cause.label) === 0 ? "1 · " : ""}{cause.label}</button>)}</div>
-      </fieldset>
-      <label htmlFor="org-geo">Where you work (US states and/or countries, comma separated)</label>
-      <input id="org-geo" value={geography} onChange={(event) => setGeography(event.target.value)} placeholder="e.g. Arizona, Kenya, Uganda" />
-      <label htmlFor="org-need">Funding need</label>
-      <input id="org-need" value={fundingNeed} onChange={(event) => setFundingNeed(event.target.value)} placeholder="e.g. $30,000 for a school meals pilot" />
-      <div className="profile-form-actions">
-        <button type="submit" className="button" disabled={!name.trim() || mission.trim().length < 10}><Check size={14} />{firstRun ? "Find foundations" : "Save and re-rank"}</button>
-        {onCancel && <button type="button" className="toolbar-button" onClick={onCancel}>Cancel</button>}
-      </div>
-    </form>
-  </div>;
 }
