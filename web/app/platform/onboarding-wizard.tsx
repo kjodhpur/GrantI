@@ -39,9 +39,11 @@ function toProfile(a: Answers): OrganizationProfile {
  * One question at a time, then a "we have what we need" screen that stays up while the workspace ranks
  * foundations. `onSubmit` saves the profile and starts ranking; `ready` turns true when results are on hand.
  */
-export default function OnboardingWizard({ initial, editing, ready, resultCount, onSubmit, onDone, onClose }: {
+export default function OnboardingWizard({ initial, editing, ready, resultCount, onSubmit, onDone, onClose, resumeName }: {
   initial: OrganizationProfile | null;
   editing: boolean;
+  /** Returning user starting a new search: offer to go back to this saved profile's results (via onClose). */
+  resumeName?: string;
   ready: boolean;
   resultCount: number;
   onSubmit: (profile: OrganizationProfile) => void;
@@ -59,7 +61,7 @@ export default function OnboardingWizard({ initial, editing, ready, resultCount,
   const set = (patch: Partial<Answers>) => setA((cur) => ({ ...cur, ...patch }));
 
   const steps = [
-    { key: "name", eyebrow: "ABOUT YOU", title: editing ? "Your organization's name" : "First, what's your organization called?",
+    { key: "name", eyebrow: resumeName ? "NEW SEARCH" : "ABOUT YOU", title: editing ? "Your organization's name" : "First, what's your organization called?",
       hint: "We'll use it to label your workspace.", valid: a.name.trim().length >= 2 },
     { key: "mission", eyebrow: "YOUR MISSION", title: `What does ${a.name.trim() || "your organization"} do, and for whom?`,
       hint: "A sentence or two is plenty. We read your cause, the people you serve and where you work from it.", valid: a.mission.trim().length >= 10 },
@@ -155,6 +157,7 @@ export default function OnboardingWizard({ initial, editing, ready, resultCount,
         <p className="wizard-hint">{current.hint}</p>
 
         {current.key === "name" && <input ref={field} className="wizard-input" value={a.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Sonoran Family Food Network" aria-labelledby="wizard-title" />}
+        {current.key === "name" && resumeName && onClose && <button type="button" className="wizard-resume" onClick={onClose}>Or continue with {resumeName}&apos;s last results<ArrowRight size={13} /></button>}
 
         {current.key === "mission" && <textarea ref={field} className="wizard-input" rows={4} value={a.mission} onChange={(e) => set({ mission: e.target.value })} placeholder="e.g. We run school meal programs for children in rural Kenya and Uganda." aria-labelledby="wizard-title" />}
 

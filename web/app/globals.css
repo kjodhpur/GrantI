@@ -278,3 +278,5 @@ button { color: inherit; }
 @media (max-width: 560px) { .wizard-card { padding: 22px 18px 18px; } .wizard-enter { display: none; } }
 @media (prefers-reduced-motion: reduce) { .wizard-card, .wizard-step, .wizard-orb, .wizard-checklist li > span { animation: none !important; } .wizard-progress i { transition: none; } }
 .wizard-card:focus { outline: none; }
+.dashboard-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }.dashboard-actions .button { margin-left: 0; }@media (max-width: 760px) { .dashboard-actions { flex-wrap: wrap; } }.new-search-button { min-height: 46px; padding: 0 16px; border-radius: 6px; font-size: 12px; color: #d5e2ee; }.new-search-button:hover { border-color: rgba(69,214,232,.45); color: #fff; }
+.wizard-resume { display: inline-flex; align-items: center; gap: 6px; margin-top: 14px; padding: 0; border: 0; background: none; color: #7fdae4; font-size: 12px; cursor: pointer; }.wizard-resume:hover { color: #b4f0f6; text-decoration: underline; }

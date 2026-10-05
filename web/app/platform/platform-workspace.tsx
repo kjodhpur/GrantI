@@ -71,8 +71,9 @@ export default function PlatformWorkspace() {
   const [phase, setPhase] = useState<"loading" | "setup" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  // the question-by-question profile wizard: open on a first visit (no profile yet) and when editing
-  const [wizard, setWizard] = useState<"closed" | "first" | "edit">("closed");
+  // the question-by-question profile wizard: a new search opens on every visit (first visit: nothing saved yet),
+  // from the dashboard's "New search" button, and pre-filled from "Edit profile"
+  const [wizard, setWizard] = useState<"closed" | "first" | "new" | "edit">("closed");
   const wizardOpen = useRef(false);
   wizardOpen.current = wizard !== "closed";
   const [view, setView] = useState<View>("overview");
@@ -95,6 +96,9 @@ export default function PlatformWorkspace() {
       setProfile(nextProfile);
       setSaved(new Set(getSavedIds()));
       if (!nextProfile) { setPhase("setup"); setWizard("first"); return; }
+      // returning user: start on a new search, with the saved profile's results loading behind it
+      // (not when arriving from a "Take the tour" link: the tour comes first then)
+      if (reloadKey === 0 && new URLSearchParams(window.location.search).get("tour") !== "1") setWizard("new");
       setPhase("loading");
       try {
         const [nextMetrics, nextProspects, nextSummary] = await Promise.all([getDashboardMetrics(), getProspects(), getMatchSummary()]);
@@ -127,11 +131,17 @@ export default function PlatformWorkspace() {
   }
 
   function wizardDone() {
-    const first = wizard === "first";
+    const kind = wizard;
     setWizard("closed");
     setView("overview");
-    if (first) offerTour();
-    else setToast("Profile updated and foundations re-ranked.");
+    if (kind === "first") offerTour();
+    else setToast(kind === "edit" ? "Profile updated and foundations re-ranked." : "New search done: foundations ranked for your answers.");
+  }
+
+  function closeWizard() {
+    const kind = wizard;
+    setWizard("closed");
+    if (kind === "new" && phase === "ready") offerTour();
   }
 
   useEffect(() => {
@@ -247,7 +257,7 @@ export default function PlatformWorkspace() {
           {view === "overview" && <>
             <div className="dashboard-heading">
               <div><p className="eyebrow">PROSPECT WORKSPACE / IRS 990-PF FILINGS</p><h1>Prospect intelligence</h1><p>Private foundations ranked against {profile.name}&apos;s mission, geography, and funding need, from their public IRS Form 990-PF grant records.</p>{summary && <CriteriaLine summary={summary} />}</div>
-              <button ref={analyzeButton} type="button" className="button analyze-button" data-tour="analyze" onClick={() => setAnalyzeOpen(true)}><Plus size={14} />Analyze a prospect</button>
+              <div className="dashboard-actions"><button type="button" className="toolbar-button new-search-button" onClick={() => setWizard("new")}><Search size={14} />New search</button><button ref={analyzeButton} type="button" className="button analyze-button" data-tour="analyze" onClick={() => setAnalyzeOpen(true)}><Plus size={14} />Analyze a prospect</button></div>
             </div>
             <section className="metric-grid" aria-label="Overview metrics" data-tour="metrics">
               <div className="metric-card"><span>Foundations scored</span><b>{metrics.prospectsAnalyzed.toLocaleString("en-US")}</b><small><i />Most focused on your causes</small></div>
@@ -306,7 +316,8 @@ export default function PlatformWorkspace() {
 
     {wizard !== "closed" && <OnboardingWizard key={wizard} initial={wizard === "edit" ? profile : null} editing={wizard === "edit"}
       ready={phase === "ready"} resultCount={prospects.length} onSubmit={submitProfile} onDone={wizardDone}
-      onClose={wizard === "edit" ? () => setWizard("closed") : undefined} />}
+      resumeName={wizard === "new" ? profile?.name : undefined}
+      onClose={wizard === "first" ? undefined : closeWizard} />}
     {tourIndex !== null && <ProductTour steps={tourSteps} index={tourIndex} onChange={goToTourStep} onClose={closeTour} />}
     {analyzeOpen && <AnalyzeModal onClose={closeAnalyze} onAdded={addAnalysis} />}
     {toast && <div className="toast" role="status"><Check size={15} />{toast}<button type="button" aria-label="Dismiss notification" onClick={() => setToast("")}><X size={15} /></button></div>}
